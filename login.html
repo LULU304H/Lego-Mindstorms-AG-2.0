@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb;
+  document.title = 'Admin-Login – Mindstorms Arena'; document.body.className = 'lg';
+  if (await A.checkAdmin()) { location.replace('admin.html'); return; }
+  document.getElementById('app').innerHTML = '<div class="lgbox"><a class="brand" href="index.html"><span class="logo">🤖</span>Mindstorms AG</a>' +
+    '<h1>Admin-Login</h1><form id="lf"><label class="fld"><span>E-Mail</span><input id="em" type="email" autocomplete="username" required></label>' +
+    '<label class="fld"><span>Passwort</span><input id="pw" type="password" autocomplete="current-password" required></label>' +
+    '<p class="form-msg" id="lm" role="alert" hidden></p><button class="btn pri" type="submit">Anmelden</button></form>' +
+    '<p style="margin-top:20px"><a href="index.html" style="color:var(--mute)">Zurück zur Seite</a></p></div>';
+  const f = document.getElementById('lf'), m = document.getElementById('lm');
+  const fail = t => { m.textContent = t; m.hidden = false; };
+  f.onsubmit = async e => {
+    e.preventDefault(); m.hidden = true;
+    const b = f.querySelector('button'); b.disabled = true;
+    const r = await sb.auth.signInWithPassword({ email: document.getElementById('em').value.trim(), password: document.getElementById('pw').value });
+    if (r.error) fail(r.error.message === 'Invalid login credentials' ? 'E-Mail oder Passwort stimmt nicht.' : 'Anmeldung nicht möglich: ' + r.error.message);
+    else if (!(await A.checkAdmin())) { await sb.auth.signOut(); fail('Dieses Konto hat keinen Admin-Zugriff.'); }
+    else { location.href = 'admin.html'; return; }
+    b.disabled = false;
+  };
+})();
+</script>
+</body>
+</html>

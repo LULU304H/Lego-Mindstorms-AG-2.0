@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc;
+  const view = await A.mount('dash', { title: 'Dashboard', admin: true });
+  if (!view) return;
+  const cnt = (t, f) => { let b = sb.from(t).select('*', { count: 'exact', head: true }); if (f) b = f(b); return b.then(r => { if (r.error) throw r.error; return r.count; }); };
+  view.innerHTML = '<h1 class="pg-h">Dashboard</h1><div class="stats" id="st"><div class="sk" style="height:92px"></div></div>' +
+    '<h2 class="h-sec">Passwort ändern</h2><form id="pwf" class="pwform">' +
+    '<label class="fld"><span>Neues Passwort (mindestens 10 Zeichen)</span><input id="p1" type="password" minlength="10" autocomplete="new-password" required></label>' +
+    '<label class="fld"><span>Neues Passwort wiederholen</span><input id="p2" type="password" minlength="10" autocomplete="new-password" required></label>' +
+    '<p class="form-msg" id="pm" role="alert" hidden></p><button class="btn pri" type="submit">Passwort speichern</button></form>';
+  try {
+    const v = await Promise.all([cnt('teams'), cnt('competitions'), cnt('change_requests', b => b.eq('status', 'PENDING')), cnt('help_requests', b => b.eq('status', 'OPEN')), cnt('participations', b => b.eq('approval_status', 'PENDING'))]);
+    const L = ['Teams', 'Wettbewerbe', 'Offene Änderungsanfragen', 'Offene Hilfe-Anfragen', 'Teilnahmen zur Prüfung'];
+    document.getElementById('st').innerHTML = v.map((n, i) => '<div class="stat"><b>' + n + '</b><span>' + L[i] + '</span></div>').join('');
+  } catch (e) { A.fail(e, 'Kennzahlen laden'); document.getElementById('st').innerHTML = '<p class="empty">Die Kennzahlen konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  const f = document.getElementById('pwf'), m = document.getElementById('pm');
+  f.onsubmit = async e => {
+    e.preventDefault(); m.hidden = true;
+    if (document.getElementById('p1').value !== document.getElementById('p2').value) { m.textContent = 'Die beiden Passwörter sind nicht gleich.'; m.hidden = false; return; }
+    const r = await sb.auth.updateUser({ password: document.getElementById('p1').value });
+    if (r.error) { m.textContent = r.error.code === 'same_password' ? 'Das neue Passwort muss anders sein als das alte.' : 'Das hat nicht geklappt: ' + r.error.message; m.hidden = false; }
+    else { f.reset(); A.toast('Passwort geändert.'); }
+  };
+})();
+</script>
+</body>
+</html>

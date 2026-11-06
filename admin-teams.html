@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script>
+const sb = Arena.sb, q = Admin.q;
+Admin.page('teams', 'Teams', {
+  table: 'teams', select: '*,team_access(tag)', order: [['name', true]], newLabel: 'Neues Team',
+  empty: 'Noch kein Team angelegt. Mit „Neues Team“ legst du das erste an. Jedes Team bekommt einen geheimen Team-Tag, mit dem es sich später anmeldet.',
+  name: r => r.name, delNote: ' Mitglieder, Punkte und Teilnahmen dieses Teams werden mit gelöscht.',
+  defaults: { color: '#FF8A00', public_profile: false },
+  load: r => { const a = r.team_access; return Object.assign({}, r, { tag: ((Array.isArray(a) ? a[0] : a) || {}).tag || '' }); },
+  fields: [
+    { k: 'name', label: 'Name', req: 1, list: 1 },
+    { k: 'description', label: 'Beschreibung', type: 'textarea' },
+    { k: 'color', label: 'Teamfarbe', type: 'color', list: 1 },
+    { k: 'public_profile', label: 'Öffentliches Profil', type: 'checkbox', list: 1, hint: 'Nur Teams mit öffentlichem Profil sehen Besucher in der Teamliste.' },
+    { k: 'tag', label: 'Team-Tag (geheimer Zugangscode)', type: 'tag', virtual: 1, req: 1, list: 1, hint: 'Damit meldet sich das Team an. Gib ihn nur an die Mitglieder weiter.' }
+  ],
+  before: async (rec, raw, r) => {
+    const o = await q(sb.from('team_access').select('team_id').eq('tag', raw.tag).maybeSingle());
+    if (o && (!r || o.team_id !== r.id)) throw new Error('Dieser Team-Tag ist schon vergeben. Erzeuge einen neuen.');
+  },
+  after: async (id, raw) => {
+    await q(sb.from('team_access').upsert({ team_id: id, tag: raw.tag }));
+    await q(sb.from('rankings').update({ team_name: raw.name }).eq('team_id', id));
+    await q(sb.from('team_scoreboard').update({ team_name: raw.name }).eq('team_id', id));
+  }
+});
+</script>
+</body>
+</html>

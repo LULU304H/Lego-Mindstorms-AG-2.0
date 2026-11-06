@@ -19,11 +19,28 @@
     home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
-    fold: '<path d="M15 5l-7 7 7 7"/>'
+    fold: '<path d="M15 5l-7 7 7 7"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4v2a4 4 0 0 0 4 4M16 6h4v2a4 4 0 0 1-4 4M12 13v4M8 21h8M10 17h4"/>',
+    grid: '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>',
+    users: '<path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M21 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8"/><circle cx="9.5" cy="6.5" r="3.5"/>',
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    out: '<path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9"/>'
   };
   const svg = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>';
   // Neue Seiten werden hier eingetragen; "feature" verknüpft sie mit den Schaltern aus der Tabelle features.
-  const NAV = [{ id: 'home', href: 'index.html', label: 'Startseite', icon: 'home' }];
+  const NAV = [
+    { id: 'home', href: 'index.html', label: 'Startseite', icon: 'home' },
+    { id: 'leaderboards', href: 'leaderboards.html', label: 'Ranglisten', icon: 'trophy', feature: 'leaderboards' }
+  ];
+  const ADMIN_NAV = [
+    { id: 'dash', href: 'admin.html', label: 'Dashboard', icon: 'grid' },
+    { id: 'teams', href: 'admin-teams.html', label: 'Teams', icon: 'users' },
+    { id: 'competitions', href: 'admin-competitions.html', label: 'Wettbewerbe', icon: 'flag' },
+    { id: 'rankings', href: 'admin-rankings.html', label: 'Ranglisten', icon: 'trophy' },
+    { id: 'site', href: 'index.html', label: 'Zur Seite', icon: 'home' },
+    { id: 'logout', href: '#', label: 'Abmelden', icon: 'out', logout: true }
+  ];
 
   const esc = Arena.esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   Arena.on = k => !k || Arena.flags[k] !== false;
@@ -39,7 +56,7 @@
   };
   Arena.fail = (e, what) => {
     console.error(what || 'Fehler', e);
-    Arena.toast(dev && e && e.message ? (what || 'Fehler') + ': ' + e.message : 'Das hat nicht geklappt. Bitte versuche es gleich noch einmal.', true);
+    Arena.toast((dev || Arena.verbose) && e && e.message ? (what || 'Fehler') + ': ' + e.message : 'Das hat nicht geklappt. Bitte versuche es gleich noch einmal.', true);
   };
   Arena.countUp = (el, to, ms) => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = to; return; }
@@ -73,9 +90,10 @@
   Arena.mount = async function (page, opts) {
     opts = opts || {};
     const sub = opts.root === false;
-    const cur = NAV.find(n => n.id === page);
+    const LIST = opts.admin ? ADMIN_NAV : NAV;
+    const cur = LIST.find(n => n.id === page);
     const title = opts.title || (cur && cur.label) || '';
-    const nav = NAV.map(n => '<a href="' + n.href + '" data-feature="' + (n.feature || '') + '"' + (n.id === page ? ' aria-current="page"' : '') + '>' + svg(n.icon) + '<span class="lbl">' + n.label + '</span></a>').join('');
+    const nav = LIST.map(n => '<a href="' + n.href + '"' + (n.logout ? ' data-logout' : '') + ' data-feature="' + (n.feature || '') + '"' + (n.id === page ? ' aria-current="page"' : '') + '>' + svg(n.icon) + '<span class="lbl">' + n.label + '</span></a>').join('');
     app.innerHTML =
       '<a class="skip" href="#view">Zum Inhalt springen</a>' +
       '<div class="shell' + (ls.get('side_mini') === '1' ? ' mini' : '') + '" id="shell">' +
@@ -105,12 +123,20 @@
       Arena.loadFlags()
     ]);
     Arena.admin = res[0];
+    if (opts.admin && !Arena.admin) { location.replace('login.html'); return null; }
+    if (Arena.admin && !opts.admin) shell.querySelector('.nav').insertAdjacentHTML('beforeend', '<a href="admin.html">' + svg('shield') + '<span class="lbl">Admin</span></a>');
     if (res[1] && !Arena.admin) {
       document.body.insertAdjacentHTML('beforeend', '<div class="lock"><div><div class="logo big">🤖</div><h1>Wir räumen gerade auf</h1><p>Die Seite ist kurz nicht erreichbar. Schau später noch einmal vorbei.</p></div></div>');
       return null;
     }
     shell.querySelectorAll('.nav [data-feature]').forEach(a => { if (!Arena.on(a.dataset.feature)) a.remove(); });
-    track();
+    if (!opts.admin) track();
     return document.getElementById('view');
   };
+  document.addEventListener('click', e => {
+    if (!e.target.closest('[data-logout]')) return;
+    e.preventDefault();
+    sb.auth.signOut().then(() => { location.href = 'login.html'; });
+  });
+  Arena.checkAdmin = checkAdmin;
 })();

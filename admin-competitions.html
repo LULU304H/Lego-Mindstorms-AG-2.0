@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script>
+const num = (k, label) => ({ k: k, label: label, type: 'number' });
+Admin.page('competitions', 'Wettbewerbe', {
+  table: 'competitions', order: [['date', false]], newLabel: 'Neuer Wettbewerb',
+  empty: 'Noch kein Wettbewerb angelegt. Mit „Neuer Wettbewerb“ legst du den ersten an.',
+  name: r => r.name, delNote: ' Alle zugehörigen Spiele werden mit gelöscht.',
+  defaults: { type: 'Robot', status: 'DRAFT', format: 'ROUND_ROBIN', points_win: 3, points_draw: 1, points_loss: 0, points_winner_bonus: 0, final_best_of: 1, semifinal_best_of: 1 },
+  fields: [
+    { k: 'name', label: 'Name', req: 1, list: 1 },
+    { k: 'type', label: 'Art', type: 'select', list: 1, options: [['Robot', 'Robot Challenge'], ['Sumo', 'Sumo Challenge'], ['Speed', 'Speed Challenge'], ['Other', 'Sonstiges']] },
+    { k: 'date', label: 'Datum', type: 'date', req: 1, list: 1 },
+    { k: 'time', label: 'Uhrzeit', type: 'time' },
+    { k: 'location', label: 'Ort' },
+    { k: 'description', label: 'Beschreibung', type: 'textarea' },
+    { k: 'status', label: 'Status', type: 'select', list: 1, options: [['DRAFT', 'Entwurf'], ['ACTIVE', 'Aktiv'], ['FINISHED', 'Beendet'], ['CANCELLED', 'Abgesagt']], hint: 'Auf der Startseite erscheinen Entwürfe und aktive Wettbewerbe als „Nächster Wettbewerb“.' },
+    { k: 'format', label: 'Format', type: 'select', options: [['ROUND_ROBIN', 'Jeder gegen jeden'], ['KO', 'K.o.-Turnier']] },
+    num('points_win', 'Punkte für einen Sieg'), num('points_draw', 'Punkte für ein Unentschieden'), num('points_loss', 'Punkte für eine Niederlage'),
+    num('points_winner_bonus', 'Bonuspunkte für den Turniersieger'), num('semifinal_best_of', 'Halbfinale: Best of'), num('final_best_of', 'Finale: Best of')
+  ]
+});
+</script>
+</body>
+</html>
