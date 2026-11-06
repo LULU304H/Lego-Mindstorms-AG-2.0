@@ -25,18 +25,22 @@
     users: '<path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M21 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8"/><circle cx="9.5" cy="6.5" r="3.5"/>',
     flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
-    out: '<path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9"/>'
+    out: '<path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'
   };
   const svg = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>';
   // Neue Seiten werden hier eingetragen; "feature" verknüpft sie mit den Schaltern aus der Tabelle features.
   const NAV = [
     { id: 'home', href: 'index.html', label: 'Startseite', icon: 'home' },
+    { id: 'competitions', href: 'competitions.html', label: 'Wettbewerbe', icon: 'flag', feature: 'competitions' },
+    { id: 'matches', href: 'matches.html', label: 'Spiele', icon: 'list', feature: 'matches' },
     { id: 'leaderboards', href: 'leaderboards.html', label: 'Ranglisten', icon: 'trophy', feature: 'leaderboards' }
   ];
   const ADMIN_NAV = [
     { id: 'dash', href: 'admin.html', label: 'Dashboard', icon: 'grid' },
     { id: 'teams', href: 'admin-teams.html', label: 'Teams', icon: 'users' },
     { id: 'competitions', href: 'admin-competitions.html', label: 'Wettbewerbe', icon: 'flag' },
+    { id: 'matches', href: 'admin-matches.html', label: 'Spiele', icon: 'list' },
     { id: 'rankings', href: 'admin-rankings.html', label: 'Ranglisten', icon: 'trophy' },
     { id: 'site', href: 'index.html', label: 'Zur Seite', icon: 'home' },
     { id: 'logout', href: '#', label: 'Abmelden', icon: 'out', logout: true }

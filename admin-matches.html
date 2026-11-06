@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tournament.js"></script>
+<script src="js/admin.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament, q = Admin.q;
+  const view = await A.mount('matches', { title: 'Spiele', admin: true });
+  if (!view) return;
+  const $ = (s, r) => (r || document).querySelector(s);
+  let comps = [], teams = [], comp = null, ms = [];
+  view.innerHTML = '<h1 class="pg-h">Spiele</h1><label class="fld"><span>Wettbewerb</span><select id="cs"></select></label><div id="cb"></div><dialog id="dlg"></dialog>';
+  const cs = $('#cs'), cb = $('#cb'), dlg = $('#dlg');
+
+  async function pick(id) {
+    try {
+      comp = await q(sb.from('competitions').select('*').eq('id', id).single());
+      ms = T.sort(await q(sb.from('matches').select('*').eq('competition_id', id)));
+      render();
+    } catch (e) { A.fail(e, 'Wettbewerb laden'); }
+  }
+  function render() {
+    const locked = ms.length > 0, ids = comp.participating_team_ids || [];
+    cb.innerHTML = '<h2 class="sec2">Teilnehmer</h2>' +
+      (teams.length ? '<div class="chk-grid">' + teams.map(t => '<label><input type="checkbox" data-t="' + t.id + '"' + (ids.indexOf(t.id) >= 0 ? ' checked' : '') + (locked ? ' disabled' : '') + '><span>' + esc(t.name) + '</span></label>').join('') + '</div>' : '<p class="empty">Noch keine Teams. Lege zuerst unter „Teams“ welche an.</p>') +
+      (locked ? '<p class="mute" style="margin-top:10px">Teilnehmer lassen sich nur ändern, solange keine Spiele ausgelost sind.</p>' : '<div class="acts"><button class="btn" id="sv" type="button">Teilnehmer speichern</button><button class="btn pri" id="dr" type="button">Spiele auslosen</button></div>') +
+      '<h2 class="sec2">Spiele (' + T.FORMAT[comp.format] + ')</h2>' +
+      (comp.ranking_applied ? '<div class="panel banner">Die Punkte sind in die Rangliste übernommen. Sieger: <b>' + esc(comp.winner_team_name || '') + '</b></div>' : '') +
+      (locked ? '<div class="acts">' + (comp.ranking_applied ? '<button class="btn" id="un" type="button">Übernahme zurücknehmen</button>' : '<button class="btn pri" id="ap" type="button">Punkte in die Rangliste übernehmen</button>') + '<button class="btn del" id="rm" type="button">Alle Spiele löschen</button></div>' +
+        '<div class="scroll"><table class="tbl"><thead><tr><th>Runde</th><th>Team 1</th><th>Team 2</th><th>Ergebnis</th><th>Status</th><th></th></tr></thead><tbody>' +
+        ms.map((m, i) => '<tr><td>' + esc(m.round) + '</td><td>' + esc(m.team1_name || 'Noch offen') + '</td><td>' + esc(m.team2_name || 'Noch offen') + '</td><td>' + esc(m.result || '–') + '</td><td><span class="chip ' + m.status + '">' + T.MST[m.status] + '</span></td><td class="act">' +
+          (m.result === 'Freilos' ? '' : '<button class="btn sm" data-r="' + i + '" type="button">Ergebnis</button> ') + '<button class="btn sm" data-s="' + i + '" type="button">Termin</button></td></tr>').join('') + '</tbody></table></div>'
+        : '<p class="empty">Noch keine Spiele. Wähle die Teilnehmer und klicke auf „Spiele auslosen“.</p>');
+  }
+  const sel = () => [...cb.querySelectorAll('[data-t]:checked')].map(i => teams.find(t => t.id === i.dataset.t));
+  const saveParts = s => q(sb.from('competitions').update({ participating_team_ids: s.map(t => t.id), participating_team_names: s.map(t => t.name) }).eq('id', comp.id));
+  const form = (title, body) => {
+    dlg.innerHTML = '<form id="fm"><h2 class="dlg-h">' + title + '</h2>' + body + '<p class="form-msg" id="msg" role="alert" hidden></p><div class="dlg-act"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn pri" type="submit">Speichern</button></div></form>';
+    dlg.onclick = e => { if (e.target.closest('[data-x]')) dlg.close(); };
+    dlg.showModal();
+    return $('#fm', dlg);
+  };
+  const run = async (f, work, ok) => {
+    const msg = $('#msg', dlg), btn = $('[type=submit]', dlg); msg.hidden = true; btn.disabled = true;
+    try { await work(); dlg.close(); A.toast(ok); await pick(comp.id); }
+    catch (e) { msg.textContent = e.message || String(e); msg.hidden = false; btn.disabled = false; }
+  };
+
+  cb.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.id === 'sv') { await saveParts(sel()); A.toast('Teilnehmer gespeichert.'); await pick(comp.id); }
+      else if (b.id === 'dr') {
+        const s = sel(); if (s.length < 2) { A.toast('Wähle mindestens zwei Teams aus.', true); return; }
+        await saveParts(s);
+        const c2 = Object.assign({}, comp, { participating_team_ids: s.map(t => t.id), participating_team_names: s.map(t => t.name) });
+        await q(sb.from('matches').insert(T.generate(c2, s)));
+        await q(sb.from('competitions').update({ bracket_generated: true, winner_team_id: null, winner_team_name: null }).eq('id', comp.id));
+        A.toast('Spiele ausgelost.'); await pick(comp.id);
+      }
+      else if (b.id === 'rm') {
+        if (comp.ranking_applied) { A.toast('Nimm zuerst die Übernahme in die Rangliste zurück.', true); return; }
+        if (!confirm('Alle Spiele dieses Wettbewerbs löschen? Ergebnisse gehen verloren. Danach kannst du neu auslosen.')) return;
+        await q(sb.from('matches').delete().eq('competition_id', comp.id));
+        await q(sb.from('competitions').update({ bracket_generated: false, winner_team_id: null, winner_team_name: null }).eq('id', comp.id));
+        A.toast('Spiele gelöscht.'); await pick(comp.id);
+      }
+      else if (b.id === 'ap') { await T.apply(sb, comp, ms); A.toast('Punkte sind in der Rangliste.'); await pick(comp.id); }
+      else if (b.id === 'un') { if (!confirm('Die übernommenen Punkte wieder aus der Rangliste abziehen?')) return; await T.undo(sb, comp); A.toast('Übernahme zurückgenommen.'); await pick(comp.id); }
+      else if (b.dataset.r != null) {
+        const m = ms[+b.dataset.r], p = T.parse(m.result);
+        const f = form('Ergebnis eintragen', '<p class="mute" style="margin-bottom:16px">' + esc(m.team1_name || 'Noch offen') + ' gegen ' + esc(m.team2_name || 'Noch offen') + (m.best_of > 1 ? ' (Best of ' + m.best_of + ': trage die gewonnenen Spiele ein)' : '') + '</p>' +
+          '<label class="fld"><span>' + esc(m.team1_name || 'Team 1') + '</span><input id="s1" type="number" min="0" value="' + p[0] + '" required></label>' +
+          '<label class="fld"><span>' + esc(m.team2_name || 'Team 2') + '</span><input id="s2" type="number" min="0" value="' + p[1] + '" required></label>');
+        f.onsubmit = ev => { ev.preventDefault(); run(f, () => T.setResult(sb, comp, m, ms, +$('#s1', dlg).value, +$('#s2', dlg).value), 'Ergebnis gespeichert.'); };
+      }
+      else if (b.dataset.s != null) {
+        const m = ms[+b.dataset.s];
+        const f = form('Termin und Ort', '<label class="fld"><span>Arena</span><input id="ar" type="text" value="' + esc(m.arena || '') + '"></label>' +
+          '<label class="fld"><span>Datum</span><input id="dt" type="date" value="' + esc(m.date || '') + '" required></label><label class="fld"><span>Uhrzeit</span><input id="tm" type="time" value="' + esc((m.time || '').slice(0, 5)) + '"></label>' +
+          (m.status === 'FINISHED' ? '' : '<label class="fld"><span>Status</span><select id="stt"><option value="SCHEDULED"' + (m.status === 'SCHEDULED' ? ' selected' : '') + '>Geplant</option><option value="LIVE"' + (m.status === 'LIVE' ? ' selected' : '') + '>Läuft</option><option value="CANCELLED"' + (m.status === 'CANCELLED' ? ' selected' : '') + '>Abgesagt</option></select></label>'));
+        f.onsubmit = ev => { ev.preventDefault(); run(f, () => q(sb.from('matches').update(Object.assign({ arena: $('#ar', dlg).value.trim() || null, date: $('#dt', dlg).value, time: $('#tm', dlg).value || null }, $('#stt', dlg) ? { status: $('#stt', dlg).value } : {})).eq('id', m.id)), 'Gespeichert.'); };
+      }
+    } catch (er) { A.fail(er, 'Aktion'); }
+  };
+
+  try { const r = await Promise.all([q(sb.from('competitions').select('*').order('date', { ascending: false })), q(sb.from('teams').select('id,name').order('name'))]); comps = r[0]; teams = r[1]; }
+  catch (e) { A.fail(e, 'Daten laden'); cb.innerHTML = '<p class="empty">Die Daten konnten nicht geladen werden: ' + esc(e.message) + '</p>'; return; }
+  if (!comps.length) { cs.closest('label').hidden = true; cb.innerHTML = '<p class="empty">Noch kein Wettbewerb. Lege zuerst unter „Wettbewerbe“ einen an.</p>'; return; }
+  cs.innerHTML = comps.map(c => '<option value="' + c.id + '">' + esc(c.name) + ' (' + new Date(c.date + 'T00:00').toLocaleDateString('de-DE') + ')</option>').join('');
+  cs.onchange = () => pick(cs.value);
+  pick(comps[0].id);
+})();
+</script>
+</body>
+</html>

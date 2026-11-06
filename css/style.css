@@ -153,3 +153,31 @@ body.lg{display:grid;place-items:center;min-height:100vh;padding:24px}
 .lgbox{width:min(100%,400px)}
 .lgbox .brand{margin-bottom:26px}
 .lgbox h1{font-size:2.2rem;margin-bottom:18px}
+
+/* Wettbewerbe, Spiele, Turnierbaum */
+.mute{color:var(--mute)}
+.chip{display:inline-block;padding:3px 11px;border-radius:99px;font-size:.8rem;font-weight:700;white-space:nowrap;background:var(--s2);color:var(--mute);border:1px solid var(--line)}
+.chip.ACTIVE,.chip.LIVE{background:var(--or);border-color:var(--or);color:#1a1205}
+.chip.FINISHED{color:var(--or2);border-color:rgba(255,138,0,.4)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.cp{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;transition:border-color .2s,translate .25s var(--ease)}
+.cp:hover{border-color:rgba(255,138,0,.55);translate:0 -2px}
+.cp h2{margin:0 0 2px;font-size:1.2rem}
+.mt{display:block;min-width:190px;padding:10px 14px;border-radius:14px;background:var(--s1);border:1px solid var(--line)}
+.mt>div{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.mt .w{color:var(--or2);font-weight:800}
+.mt small{display:block;color:var(--mute);font-size:.8rem}
+.mt i{color:var(--mute)}
+a.mt:hover{border-color:rgba(255,138,0,.5)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.brk{display:flex;gap:28px;overflow-x:auto;padding-bottom:12px}
+.brk>div{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:210px}
+.brk h3,.rnd{margin:22px 0 10px;font-size:1rem;color:var(--mute)}
+.brk h3{margin:0}
+.banner{margin-top:18px;border-color:rgba(255,138,0,.5);background:linear-gradient(90deg,rgba(255,138,0,.16),var(--s1))}
+.banner b{color:var(--or2)}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.chk-grid label{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.chk-grid input{width:20px;min-height:20px;accent-color:var(--or)}
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.sec2{margin-top:26px}

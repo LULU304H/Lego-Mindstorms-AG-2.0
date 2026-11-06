@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tournament.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament;
+  const view = await A.mount('competitions', { title: 'Wettbewerbe' });
+  if (!view) return;
+  if (!A.on('competitions')) { view.innerHTML = '<p class="empty">Die Wettbewerbe sind gerade ausgeschaltet.</p>'; return; }
+  view.innerHTML = '<h1 class="pg-h">Wettbewerbe</h1><div id="ls"><div class="sk" style="height:84px"></div></div>';
+  let b = sb.from('competitions').select('*').order('date', { ascending: false });
+  if (!A.admin) b = b.neq('status', 'DRAFT');
+  const r = await b, ls = document.getElementById('ls');
+  if (r.error) { A.fail(r.error, 'Wettbewerbe laden'); ls.innerHTML = '<div class="empty">Die Wettbewerbe konnten nicht geladen werden. Lade die Seite neu.</div>'; return; }
+  if (!r.data.length) { ls.innerHTML = '<div class="empty">Noch keine Wettbewerbe veröffentlicht.</div>'; return; }
+  ls.innerHTML = r.data.map(c => '<a class="panel cp" href="competition.html?id=' + c.id + '"><div><h2>' + esc(c.name) + '</h2><span class="mute">' +
+    esc([A.type(c.type), A.fmtDate(c.date) + (c.time ? ', ' + c.time.slice(0, 5) + ' Uhr' : ''), c.location].filter(Boolean).join(', ')) +
+    '</span></div><span class="chip ' + c.status + '">' + T.STATUS[c.status] + '</span></a>').join('');
+})();
+</script>
+</body>
+</html>

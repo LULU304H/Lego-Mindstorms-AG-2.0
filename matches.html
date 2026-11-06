@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tournament.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament;
+  const view = await A.mount('matches', { title: 'Spiele' });
+  if (!view) return;
+  if (!A.on('matches')) { view.innerHTML = '<p class="empty">Die Spiele-Übersicht ist gerade ausgeschaltet.</p>'; return; }
+  const F = [['ALL', 'Alle'], ['SCHEDULED', 'Geplant'], ['LIVE', 'Läuft'], ['FINISHED', 'Beendet']];
+  let rows = [], cur = 'ALL', failed = false;
+  view.innerHTML = '<h1 class="pg-h">Spiele</h1><div class="seg" role="group" aria-label="Spiele filtern">' + F.map(f => '<button type="button" data-f="' + f[0] + '">' + f[1] + '</button>').join('') + '</div><div id="ml" style="margin-top:18px"></div>';
+  const ml = document.getElementById('ml');
+  const draw = () => {
+    view.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === cur));
+    if (failed) { ml.innerHTML = '<div class="empty">Die Spiele konnten nicht geladen werden. Lade die Seite neu.</div>'; return; }
+    let l = rows.filter(m => cur === 'ALL' ? m.status !== 'CANCELLED' : m.status === cur);
+    if (cur === 'FINISHED') l = l.slice().reverse();
+    ml.innerHTML = l.length ? '<div class="mgrid">' + l.map(m => T.box(m, esc, true)).join('') + '</div>' : '<div class="empty">Keine Spiele in dieser Ansicht.</div>';
+  };
+  view.querySelector('.seg').onclick = e => { const b = e.target.closest('button'); if (b) { cur = b.dataset.f; draw(); } };
+  const r = await sb.from('matches').select('*').order('date').order('time', { nullsFirst: false }).limit(300);
+  if (r.error) { failed = true; A.fail(r.error, 'Spiele laden'); } else rows = r.data.filter(m => m.team1_id || m.team2_id);
+  draw();
+})();
+</script>
+</body>
+</html>

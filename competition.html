@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/tournament.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament;
+  const view = await A.mount('competitions', { title: 'Wettbewerb', root: false });
+  if (!view) return;
+  const back = ' <a href="competitions.html" style="color:var(--or2)">Zur Liste</a>';
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { view.innerHTML = '<p class="empty">Kein Wettbewerb ausgewählt.' + back + '</p>'; return; }
+  const res = await Promise.all([sb.from('competitions').select('*').eq('id', id).maybeSingle(), sb.from('matches').select('*').eq('competition_id', id)]);
+  const bad = res[0].error || res[1].error;
+  if (bad) { A.fail(bad, 'Wettbewerb laden'); view.innerHTML = '<p class="empty">Der Wettbewerb konnte nicht geladen werden. Lade die Seite neu.</p>'; return; }
+  const c = res[0].data;
+  if (!c || (c.status === 'DRAFT' && !A.admin)) { view.innerHTML = '<p class="empty">Diesen Wettbewerb gibt es nicht oder er ist noch nicht veröffentlicht.' + back + '</p>'; return; }
+  const ms = T.sort(res[1].data), teams = T.teamsOf(c);
+  document.title = c.name + ' – Mindstorms Arena';
+  let h = '<h1 class="pg-h" style="margin-bottom:8px">' + esc(c.name) + '</h1><p class="lead" style="margin-top:0">' +
+    esc([A.type(c.type), A.fmtDate(c.date) + (c.time ? ', ' + c.time.slice(0, 5) + ' Uhr' : ''), c.location].filter(Boolean).join(', ')) + '</p>' +
+    '<div class="chips"><span class="chip ' + c.status + '">' + T.STATUS[c.status] + '</span><span class="chip">' + T.FORMAT[c.format] + '</span></div>' +
+    (c.description ? '<p class="lead">' + esc(c.description) + '</p>' : '') +
+    '<p class="mute" style="margin-top:12px">Punkte: Sieg ' + c.points_win + ', Unentschieden ' + c.points_draw + ', Niederlage ' + c.points_loss + (c.points_winner_bonus ? ', Bonus für den Sieger ' + c.points_winner_bonus : '') + '</p>';
+  if (c.winner_team_name) h += '<div class="panel banner">Sieger: <b>' + esc(c.winner_team_name) + '</b></div>';
+  if (teams.length) h += '<h2 class="sec2">Teilnehmer</h2><div class="chips">' + teams.map(t => '<span class="chip">' + esc(t.name) + '</span>').join('') + '</div>';
+  const rounds = ms.map(m => m.round).filter((r, i, a) => a.indexOf(r) === i);
+  if (!ms.length) h += '<p class="empty sec2">Die Spiele werden noch ausgelost.</p>';
+  else if (c.format === 'KO') {
+    h += '<h2 class="sec2">Turnierbaum</h2><div class="brk">' + rounds.map(r => '<div><h3>' + esc(r) + '</h3>' + ms.filter(m => m.round === r).map(m => T.box(m, esc)).join('') + '</div>').join('') + '</div>';
+  } else {
+    const st = T.standings(c, ms, teams);
+    h += '<section class="panel sec2"><h2>Tabelle</h2><div class="scroll"><table class="tbl"><thead><tr><th>Platz</th><th>Team</th><th>Spiele</th><th>S</th><th>U</th><th>N</th><th>Diff.</th><th>Punkte</th></tr></thead><tbody>' +
+      st.map((t, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(t.team_name) + '</td><td>' + t.played + '</td><td>' + t.wins + '</td><td>' + t.draws + '</td><td>' + t.losses + '</td><td>' + (t.diff > 0 ? '+' : '') + t.diff + '</td><td><b>' + t.points + '</b></td></tr>').join('') +
+      '</tbody></table></div></section><h2 class="sec2">Spiele</h2>' + rounds.map(r => '<h3 class="rnd">' + esc(r) + '</h3><div class="mgrid">' + ms.filter(m => m.round === r).map(m => T.box(m, esc)).join('') + '</div>').join('');
+  }
+  view.innerHTML = h;
+})();
+</script>
+</body>
+</html>
