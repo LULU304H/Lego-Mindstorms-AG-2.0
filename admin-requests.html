@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('requests', { title: 'Anfragen', admin: true });
+  if (!view) return;
+  const TYPES = { TEAM_CREATE: 'Team erstellen', TEAM_INFO: 'Teamdaten ändern', MEMBER_ADD: 'Mitglied hinzufügen', MEMBER_UPDATE: 'Mitglied ändern', MEMBER_REMOVE: 'Mitglied entfernen', PROFILE_VISIBILITY: 'Sichtbarkeit des Profils', TAG: 'Team-Tag ändern', ROBOT_IMAGES: 'Roboter-Bilder' };
+  const ST = { PENDING: 'Wartet', APPROVED: 'Genehmigt', REJECTED: 'Abgelehnt', OPEN: 'Offen', RESOLVED: 'Erledigt' };
+  const ROLES = ['Captain', 'Driver', 'Builder', 'Programmer', 'Member'];
+  const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+  const isId = v => /^[0-9a-f-]{36}$/i.test(String(v));
+  const fmt = d => new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
+  let reqs = [], helps = [];
+  view.innerHTML = '<h1 class="pg-h">Anfragen</h1><h2 class="sec2">Änderungsanfragen</h2><div id="cr"></div><h2 class="sec2">Hilfe-Anfragen</h2><div id="hr"></div>';
+
+  const detail = r => {
+    const p = r.payload || {};
+    if (r.type === 'TEAM_INFO') return ['name', 'description', 'color'].filter(k => p[k] != null).map(k => ({ name: 'Name', description: 'Beschreibung', color: 'Farbe' }[k]) + ': ' + str(p[k], 200)).join('; ');
+    if (r.type === 'PROFILE_VISIBILITY') return p.public_profile ? 'Profil sichtbar machen' : 'Profil verstecken';
+    if (r.type === 'MEMBER_REMOVE') return str(p.first_name, 60) + ' ' + str(p.last_name, 60);
+    return [str(p.first_name, 60) + ' ' + str(p.last_name, 60), p.class_name ? 'Klasse ' + str(p.class_name, 20) : '', p.role ? 'Rolle ' + p.role : ''].filter(Boolean).join(', ');
+  };
+  // Nur bekannte Felder werden übernommen, alles andere aus der Anfrage wird ignoriert
+  async function applyReq(r) {
+    const p = r.payload || {}, tid = r.team_id;
+    if (!tid) throw new Error('Diese Anfrage gehört zu keinem Team.');
+    if (r.type === 'TEAM_INFO') {
+      const u = {};
+      if (p.name != null && str(p.name, 80)) u.name = str(p.name, 80);
+      if (p.description != null) u.description = str(p.description, 500) || null;
+      if (/^#[0-9a-f]{6}$/i.test(p.color || '')) u.color = p.color;
+      if (!Object.keys(u).length) throw new Error('Die Anfrage enthält keine gültigen Änderungen.');
+      await q(sb.from('teams').update(u).eq('id', tid));
+      if (u.name) { await q(sb.from('rankings').update({ team_name: u.name }).eq('team_id', tid)); await q(sb.from('team_scoreboard').update({ team_name: u.name }).eq('team_id', tid)); }
+    } else if (r.type === 'PROFILE_VISIBILITY') {
+      await q(sb.from('teams').update({ public_profile: p.public_profile === true }).eq('id', tid));
+    } else if (r.type === 'MEMBER_ADD' || r.type === 'MEMBER_UPDATE') {
+      const m = { first_name: str(p.first_name, 60), last_name: str(p.last_name, 60), class_name: str(p.class_name, 20) || null, role: ROLES.indexOf(p.role) >= 0 ? p.role : 'Member' };
+      if (!m.first_name || !m.last_name) throw new Error('Vor- und Nachname fehlen.');
+      if (r.type === 'MEMBER_ADD') await q(sb.from('team_members').insert(Object.assign({ team_id: tid, team_name: r.team_name }, m)));
+      else { if (!isId(p.id)) throw new Error('Das Mitglied ist unbekannt.'); await q(sb.from('team_members').update(m).eq('id', p.id).eq('team_id', tid)); }
+    } else if (r.type === 'MEMBER_REMOVE') {
+      if (!isId(p.id)) throw new Error('Das Mitglied ist unbekannt.');
+      await q(sb.from('team_members').delete().eq('id', p.id).eq('team_id', tid));
+    } else throw new Error('Diese Art von Anfrage kann noch nicht bearbeitet werden.');
+  }
+  async function decide(r, ok) {
+    const me = (await sb.auth.getSession()).data.session;
+    if (ok) await applyReq(r);
+    await q(sb.from('change_requests').update({ status: ok ? 'APPROVED' : 'REJECTED', reviewed_by_name: me ? me.user.email : null }).eq('id', r.id));
+  }
+  function draw() {
+    const cr = document.getElementById('cr'), hr = document.getElementById('hr');
+    cr.innerHTML = reqs.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Anfrage</th><th>Inhalt</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + reqs.map((r, i) => '<tr><td>' + esc(r.team_name || '') + '</td><td>' + esc(TYPES[r.type] || r.type) + '</td><td>' + esc(detail(r)) + (r.note ? '<br><span class="mute">Notiz: ' + esc(r.note) + '</span>' : '') + '</td><td>' + fmt(r.created_at) + '</td><td><span class="chip ' + r.status + '">' + ST[r.status] + '</span></td><td class="act">' +
+      (r.status === 'PENDING' ? '<button class="btn sm pri" data-a="' + i + '" type="button">Genehmigen</button> <button class="btn sm del" data-r="' + i + '" type="button">Ablehnen</button>' : '<span class="mute">' + esc(r.reviewed_by_name || '') + '</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Keine Änderungsanfragen.</p>';
+    hr.innerHTML = helps.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Nachricht</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + helps.map((h, i) => '<tr><td>' + esc(h.team_name || '') + '</td><td>' + esc(h.note || '–') + '</td><td>' + fmt(h.created_at) + '</td><td><span class="chip ' + h.status + '">' + ST[h.status] + '</span></td><td class="act">' + (h.status === 'OPEN' ? '<button class="btn sm" data-h="' + i + '" type="button">Erledigt</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Keine Hilfe-Anfragen.</p>';
+  }
+  async function load() {
+    try {
+      reqs = await q(sb.from('change_requests').select('*').order('created_at', { ascending: false }).limit(100));
+      helps = await q(sb.from('help_requests').select('*').order('created_at', { ascending: false }).limit(100));
+      reqs.sort((a, b) => (b.status === 'PENDING') - (a.status === 'PENDING')); helps.sort((a, b) => (b.status === 'OPEN') - (a.status === 'OPEN'));
+      draw();
+    } catch (e) { A.fail(e, 'Anfragen laden'); document.getElementById('cr').innerHTML = '<p class="empty">Die Anfragen konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  }
+  view.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.dataset.a != null) { await decide(reqs[+b.dataset.a], true); A.toast('Genehmigt und übernommen.'); }
+      else if (b.dataset.r != null) { await decide(reqs[+b.dataset.r], false); A.toast('Abgelehnt.'); }
+      else if (b.dataset.h != null) { await q(sb.from('help_requests').update({ status: 'RESOLVED' }).eq('id', helps[+b.dataset.h].id)); A.toast('Als erledigt markiert.'); }
+      else return;
+      load();
+    } catch (er) { A.toast('Das hat nicht geklappt: ' + (er.message || er), true); }
+  };
+  load();
+})();
+</script>
+</body>
+</html>

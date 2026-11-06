@@ -23,7 +23,7 @@
     if (f.type === 'select') return '<select id="' + id + '"' + req + '>' + (f.options || []).map(opt).map(o => '<option value="' + esc(o[0]) + '"' + (o[0] == v ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
     if (f.type === 'checkbox') return '<input id="' + id + '" type="checkbox"' + (v ? ' checked' : '') + '>';
     const t = f.type === 'tag' ? 'text' : f.type || 'text';
-    return '<input id="' + id + '" type="' + t + '" value="' + esc(v) + '"' + req + (t === 'number' ? ' step="1"' : '') + '>';
+    return '<input id="' + id + '" type="' + t + '" value="' + esc(v) + '"' + req + (f.type === 'tag' ? ' minlength="8"' : '') + (t === 'number' ? ' step="1"' : '') + '>';
   };
   const read = (f, dlg) => {
     const el = $('#f_' + f.k, dlg);

@@ -26,7 +26,10 @@
     flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
     shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
     out: '<path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9"/>',
-    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    user: '<path d="M20 21v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1"/><circle cx="12" cy="7" r="4"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>'
   };
   const svg = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>';
   // Neue Seiten werden hier eingetragen; "feature" verknüpft sie mit den Schaltern aus der Tabelle features.
@@ -34,7 +37,10 @@
     { id: 'home', href: 'index.html', label: 'Startseite', icon: 'home' },
     { id: 'competitions', href: 'competitions.html', label: 'Wettbewerbe', icon: 'flag', feature: 'competitions' },
     { id: 'matches', href: 'matches.html', label: 'Spiele', icon: 'list', feature: 'matches' },
-    { id: 'leaderboards', href: 'leaderboards.html', label: 'Ranglisten', icon: 'trophy', feature: 'leaderboards' }
+    { id: 'leaderboards', href: 'leaderboards.html', label: 'Ranglisten', icon: 'trophy', feature: 'leaderboards' },
+    { id: 'teams', href: 'teams.html', label: 'Teams', icon: 'users', feature: 'teams' },
+    { id: 'team', href: 'team.html', label: 'Mein Team', icon: 'user', feature: 'teams' },
+    { id: 'messages', href: 'messages.html', label: 'Nachrichten', icon: 'mail', feature: 'messages' }
   ];
   const ADMIN_NAV = [
     { id: 'dash', href: 'admin.html', label: 'Dashboard', icon: 'grid' },
@@ -42,6 +48,8 @@
     { id: 'competitions', href: 'admin-competitions.html', label: 'Wettbewerbe', icon: 'flag' },
     { id: 'matches', href: 'admin-matches.html', label: 'Spiele', icon: 'list' },
     { id: 'rankings', href: 'admin-rankings.html', label: 'Ranglisten', icon: 'trophy' },
+    { id: 'requests', href: 'admin-requests.html', label: 'Anfragen', icon: 'inbox' },
+    { id: 'messages', href: 'admin-messages.html', label: 'Nachrichten', icon: 'mail' },
     { id: 'site', href: 'index.html', label: 'Zur Seite', icon: 'home' },
     { id: 'logout', href: '#', label: 'Abmelden', icon: 'out', logout: true }
   ];
