@@ -8,15 +8,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/tournament.js?v=5"></script>
-<script src="js/admin.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -45,7 +45,7 @@
       (locked ? '<div class="acts">' + (comp.ranking_applied ? '<button class="btn" id="un" type="button">Übernahme zurücknehmen</button>' : '<button class="btn pri" id="ap" type="button">Punkte in die Rangliste übernehmen</button>') + '<button class="btn del" id="rm" type="button">Alle Spiele löschen</button></div>' +
         '<div class="scroll"><table class="tbl"><thead><tr><th>Runde</th><th>Team 1</th><th>Team 2</th><th>Ergebnis</th><th>Status</th><th></th></tr></thead><tbody>' +
         ms.map((m, i) => '<tr><td>' + esc(m.round) + '</td><td>' + esc(m.team1_name || 'Noch offen') + '</td><td>' + esc(m.team2_name || 'Noch offen') + '</td><td>' + esc(m.result || '–') + '</td><td><span class="chip ' + m.status + '">' + T.MST[m.status] + '</span></td><td class="act">' +
-          (m.result === 'Freilos' ? '' : '<button class="btn sm" data-r="' + i + '" type="button">Ergebnis</button> ') + '<button class="btn sm" data-s="' + i + '" type="button">Termin</button></td></tr>').join('') + '</tbody></table></div>'
+          (m.result === 'Freilos' ? '' : '<button class="btn sm" data-r="' + i + '" type="button">Ergebnis</button> ') + '<button class="btn sm" data-s="' + i + '" type="button">Termin</button> <a class="btn sm" href="present.html?id=' + m.id + '" target="_blank" rel="noopener">Präsentieren</a></td></tr>').join('') + '</tbody></table></div>'
         : '<p class="empty">Noch keine Spiele. Wähle die Teilnehmer und klicke auf „Spiele auslosen“.</p>');
   }
   const sel = () => [...cb.querySelectorAll('[data-t]:checked')].map(i => teams.find(t => t.id === i.dataset.t));

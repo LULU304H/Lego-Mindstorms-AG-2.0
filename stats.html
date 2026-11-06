@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc;
+  const view = await A.mount('stats', { title: 'Statistiken' });
+  if (!view) return;
+  if (!A.on('analytics')) { view.innerHTML = '<p class="empty">Die Statistiken sind gerade ausgeschaltet.</p>'; return; }
+  view.innerHTML = '<h1 class="pg-h">Statistiken</h1><p class="mute" style="margin-bottom:14px">Die aktivsten Teams. Punkte gibt es für den Besuch des Team-Bereichs (1), eine Namensänderung (2), ein Roboter-Bild (5) und ein Projekt (10).</p><div id="ls"><div class="sk" style="height:120px"></div></div>';
+  const ls = document.getElementById('ls');
+  const cfg = await sb.from('site_config').select('value').eq('key', 'analytics_public').maybeSingle();
+  if (cfg.data && cfg.data.value === 'false' && !A.admin) { ls.innerHTML = '<div class="empty">Die Statistiken sind gerade nicht öffentlich.</div>'; return; }
+  const r = await sb.from('team_scoreboard').select('*').order('total', { ascending: false }).limit(50);
+  if (r.error) { A.fail(r.error, 'Statistiken laden'); ls.innerHTML = '<div class="empty">Die Statistiken konnten nicht geladen werden. Lade die Seite neu.</div>'; return; }
+  if (!r.data.length) { ls.innerHTML = '<div class="empty">Noch keine Aktivität. Sobald Teams ihren Bereich nutzen, erscheinen sie hier.</div>'; return; }
+  ls.innerHTML = '<div class="scroll"><table class="tbl"><thead><tr><th>Platz</th><th>Team</th><th>Besuche</th><th>Bilder</th><th>Namen</th><th>Projekte</th><th>Punkte</th></tr></thead><tbody>' + r.data.map((t, i) =>
+    '<tr><td>' + (i + 1) + '</td><td><i class="dot" style="background:' + esc(t.team_color || '#FF8A00') + '"></i>' + esc(t.team_name) + '</td><td>' + t.views + '</td><td>' + t.images + '</td><td>' + t.names + '</td><td>' + t.projects + '</td><td><b>' + t.total + '</b></td></tr>').join('') + '</tbody></table></div>';
+})();
+</script>
+</body>
+</html>

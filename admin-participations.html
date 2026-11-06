@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('participations', { title: 'Teilnahmen', admin: true });
+  if (!view) return;
+  const ST = { PENDING: 'Wartet', APPROVED: 'Zugelassen', REJECTED: 'Abgelehnt' };
+  let rows = [];
+  view.innerHTML = '<h1 class="pg-h">Teilnahmen</h1><p class="mute" style="margin-bottom:14px">Teams fragen hier an, bei einem aktiven Wettbewerb mitzumachen. Wenn du zulässt, wird das Team als Teilnehmer eingetragen, solange noch nicht ausgelost wurde.</p><div id="ls"></div>';
+  const ls = document.getElementById('ls');
+  const draw = () => { ls.innerHTML = rows.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Wettbewerb</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + rows.map((r, i) =>
+    '<tr><td>' + esc(r.team_name || '') + '</td><td>' + esc(r.competition_name || '') + '</td><td>' + new Date(r.created_at).toLocaleDateString('de-DE') + '</td><td><span class="chip ' + r.approval_status + '">' + ST[r.approval_status] + '</span></td><td class="act">' +
+    (r.approval_status === 'PENDING' ? '<button class="btn sm pri" data-a="' + i + '" type="button">Zulassen</button> <button class="btn sm del" data-r="' + i + '" type="button">Ablehnen</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Noch keine Anfragen.</p>'; };
+  const load = async () => {
+    try { rows = await q(sb.from('participations').select('*').order('created_at', { ascending: false }).limit(200)); rows.sort((a, b) => (b.approval_status === 'PENDING') - (a.approval_status === 'PENDING')); draw(); }
+    catch (e) { A.fail(e, 'Teilnahmen laden'); ls.innerHTML = '<p class="empty">Die Teilnahmen konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  };
+  ls.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const ok = b.dataset.a != null, r = rows[+(ok ? b.dataset.a : b.dataset.r)]; if (!r) return;
+    try {
+      let note = '';
+      if (ok) {
+        const c = await q(sb.from('competitions').select('*').eq('id', r.competition_id).single());
+        const ms = await sb.from('matches').select('id', { count: 'exact', head: true }).eq('competition_id', c.id);
+        const ids = c.participating_team_ids || [];
+        if (ids.indexOf(r.team_id) < 0) {
+          if (!ms.count) await q(sb.from('competitions').update({ participating_team_ids: ids.concat(r.team_id), participating_team_names: (c.participating_team_names || []).concat(r.team_name) }).eq('id', c.id));
+          else note = ' Die Spiele sind schon ausgelost, das Team wurde nicht automatisch eingetragen.';
+        }
+      }
+      await q(sb.from('participations').update({ approval_status: ok ? 'APPROVED' : 'REJECTED' }).eq('id', r.id));
+      A.toast((ok ? 'Zugelassen.' : 'Abgelehnt.') + note); load();
+    } catch (er) { A.fail(er, 'Aktion'); }
+  };
+  load();
+})();
+</script>
+</body>
+</html>

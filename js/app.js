@@ -33,7 +33,12 @@
     sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
     book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V21h16"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+    check: '<path d="M4 12l5 5L20 6"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'
   };
   const svg = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>';
   // Neue Seiten werden hier eingetragen; "feature" verknüpft sie mit den Schaltern aus der Tabelle features.
@@ -47,7 +52,9 @@
     { id: 'messages', href: 'messages.html', label: 'Nachrichten', icon: 'mail', feature: 'messages' },
     { id: 'rules', href: 'rules.html', label: 'Regeln', icon: 'book', feature: 'rules' },
     { id: 'history', href: 'history.html', label: 'Historie', icon: 'clock', feature: 'competition_history' },
-    { id: 'about', href: 'about.html', label: 'Über die AG', icon: 'info', feature: 'about' }
+    { id: 'about', href: 'about.html', label: 'Über die AG', icon: 'info', feature: 'about' },
+    { id: 'stats', href: 'stats.html', label: 'Statistiken', icon: 'chart', feature: 'analytics' },
+    { id: 'chat', href: 'chat.html', label: 'Open Chat', icon: 'chat', feature: 'chat' }
   ];
   const ADMIN_NAV = [
     { id: 'dash', href: 'admin.html', label: 'Dashboard', icon: 'grid' },
@@ -57,6 +64,10 @@
     { id: 'rankings', href: 'admin-rankings.html', label: 'Ranglisten', icon: 'trophy' },
     { id: 'requests', href: 'admin-requests.html', label: 'Anfragen', icon: 'inbox' },
     { id: 'messages', href: 'admin-messages.html', label: 'Nachrichten', icon: 'mail' },
+    { id: 'participations', href: 'admin-participations.html', label: 'Teilnahmen', icon: 'check' },
+    { id: 'files', href: 'admin-files.html', label: 'Dateien', icon: 'image' },
+    { id: 'chat', href: 'admin-chat.html', label: 'Open Chat', icon: 'chat' },
+    { id: 'stats', href: 'admin-stats.html', label: 'Statistiken', icon: 'chart' },
     { id: 'rules', href: 'admin-rules.html', label: 'Regeln', icon: 'book' },
     { id: 'about', href: 'admin-about.html', label: 'AG-Infos', icon: 'info' },
     { id: 'settings', href: 'admin-settings.html', label: 'Funktionen', icon: 'sliders' },
@@ -149,6 +160,7 @@
     if (!opts.admin) shell.querySelector('.nav').insertAdjacentHTML('beforeend', Arena.admin
       ? '<a href="admin.html">' + svg('shield') + '<span class="lbl">Admin</span></a>'
       : '<a href="login.html">' + svg('shield') + '<span class="lbl">Admin-Login</span></a>');
+    if (!opts.admin && Arena.on('tour')) shell.querySelector('.top').insertAdjacentHTML('beforeend', '<button class="adm tourbtn" id="tourBtn" type="button" aria-label="Rundgang starten" title="Rundgang starten">' + svg('compass') + '</button>');
     if (!opts.admin) { const t = Arena.admin ? 'Admin-Bereich' : 'Admin-Login'; shell.querySelector('.top').insertAdjacentHTML('beforeend', '<a class="adm" href="' + (Arena.admin ? 'admin.html' : 'login.html') + '" aria-label="' + t + '" title="' + t + '">' + svg('shield') + '</a>'); }
     if (res[1] && !Arena.admin) {
       document.body.insertAdjacentHTML('beforeend', '<div class="lock"><div><div class="logo big">🤖</div><h1>Wir räumen gerade auf</h1><p>Die Seite ist kurz nicht erreichbar. Schau später noch einmal vorbei.</p></div></div>');
@@ -162,6 +174,11 @@
     if (!e.target.closest('[data-logout]')) return;
     e.preventDefault();
     sb.auth.signOut().then(() => { location.href = 'login.html'; });
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#tourBtn')) return;
+    if (Arena.tour) { Arena.tour(); return; }
+    const s = document.createElement('script'); s.src = 'js/tour.js?v=6'; s.onload = () => Arena.tour(); document.head.append(s);
   });
   Arena.checkAdmin = checkAdmin;
 })();

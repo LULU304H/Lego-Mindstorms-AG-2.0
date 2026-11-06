@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('chat', { title: 'Open Chat', admin: true });
+  if (!view) return;
+  let msgs = [], bans = [];
+  view.innerHTML = '<h1 class="pg-h">Open Chat</h1><h2 class="sec2">Gesperrte Teams</h2><div id="bn"></div><h2 class="sec2">Nachrichten</h2><div id="ms"></div><dialog id="dlg"></dialog>';
+  const bn = document.getElementById('bn'), ms = document.getElementById('ms'), dlg = document.getElementById('dlg');
+  const fmt = d => new Date(d).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+  const draw = () => {
+    bn.innerHTML = bans.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Gesperrt bis</th><th>Grund</th><th></th></tr></thead><tbody>' + bans.map((b, i) => '<tr><td>' + esc(b.team_name || '') + '</td><td>' + fmt(b.until) + '</td><td>' + esc(b.reason || '') + '</td><td class="act"><button class="btn sm" data-ub="' + i + '" type="button">Aufheben</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Kein Team ist gesperrt.</p>';
+    ms.innerHTML = msgs.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Zeit</th><th>Team</th><th>Name</th><th>Nachricht</th><th></th></tr></thead><tbody>' + msgs.map((m, i) => '<tr><td>' + fmt(m.created_at) + '</td><td>' + esc(m.team_name || '') + '</td><td>' + esc(m.sender_name || '') + '</td><td>' + esc(m.text) + '</td><td class="act"><button class="btn sm del" data-dm="' + i + '" type="button">Löschen</button>' + (m.team_id ? ' <button class="btn sm" data-bm="' + i + '" type="button">Team sperren</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Noch keine Nachrichten im Chat.</p>';
+  };
+  const load = async () => {
+    try {
+      msgs = await q(sb.from('open_chat_messages').select('*').order('created_at', { ascending: false }).limit(100));
+      bans = await q(sb.from('open_chat_bans').select('*').gt('until', new Date().toISOString()).order('until'));
+      draw();
+    } catch (e) { A.fail(e, 'Chat laden'); ms.innerHTML = '<p class="empty">Der Chat konnte nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  };
+  view.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.dataset.dm != null) { await q(sb.from('open_chat_messages').delete().eq('id', msgs[+b.dataset.dm].id)); A.toast('Gelöscht.'); load(); }
+      else if (b.dataset.ub != null) { await q(sb.from('open_chat_bans').delete().eq('id', bans[+b.dataset.ub].id)); A.toast('Sperre aufgehoben.'); load(); }
+      else if (b.dataset.bm != null) {
+        const m = msgs[+b.dataset.bm];
+        dlg.innerHTML = '<form id="bf"><h2 class="dlg-h">Team sperren</h2><p class="mute" style="margin-bottom:14px">' + esc(m.team_name || '') + ' kann dann im Chat nichts mehr schreiben.</p><label class="fld"><span>Dauer</span><select id="bd"><option value="60">1 Stunde</option><option value="1440">24 Stunden</option><option value="10080">7 Tage</option></select></label><label class="fld"><span>Grund (freiwillig)</span><input id="br" type="text" maxlength="200"></label><div class="dlg-act"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn pri" type="submit">Sperren</button></div></form>';
+        dlg.onclick = ev => { if (ev.target.closest('[data-x]')) dlg.close(); };
+        dlg.showModal();
+        document.getElementById('bf').onsubmit = async ev => {
+          ev.preventDefault();
+          try { await q(sb.from('open_chat_bans').insert({ team_id: m.team_id, team_name: m.team_name, until: new Date(Date.now() + (+document.getElementById('bd').value) * 60000).toISOString(), reason: document.getElementById('br').value.trim() || null })); dlg.close(); A.toast('Team gesperrt.'); load(); }
+          catch (er) { A.fail(er, 'Sperren'); }
+        };
+      }
+    } catch (er) { A.fail(er, 'Aktion'); }
+  };
+  load();
+})();
+</script>
+</body>
+</html>

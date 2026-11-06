@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('stats', { title: 'Statistiken', admin: true });
+  if (!view) return;
+  view.innerHTML = '<h1 class="pg-h">Statistiken</h1><div id="st"><div class="sk" style="height:120px"></div></div><h2 class="sec2">Öffentliche Seite</h2><form id="pf"><label class="fld chk"><input id="pp" type="checkbox"><span>Statistik-Seite für alle Besucher anzeigen</span></label></form>';
+  const st = document.getElementById('st'), pp = document.getElementById('pp');
+  try {
+    const since = new Date(Date.now() - 13 * 864e5); since.setHours(0, 0, 0, 0);
+    const ev = await q(sb.from('stat_events').select('type,path,device_id,created_at').gte('created_at', since.toISOString()).order('created_at', { ascending: false }).limit(5000));
+    const day = d => new Date(d).toLocaleDateString('sv-SE'), days = [], byDay = {};
+    for (let i = 0; i < 14; i++) { const d = new Date(since.getTime() + i * 864e5); days.push(day(d)); byDay[day(d)] = 0; }
+    const views = ev.filter(e => e.type === 'page_view'), pages = {}, devs = {};
+    views.forEach(e => { const k = day(e.created_at); if (k in byDay) byDay[k]++; pages[e.path || '?'] = (pages[e.path || '?'] || 0) + 1; if (e.device_id) devs[e.device_id] = 1; });
+    const max = Math.max(1, ...days.map(d => byDay[d])), top = Object.keys(pages).sort((a, b) => pages[b] - pages[a]).slice(0, 8);
+    st.innerHTML = '<div class="stats"><div class="stat"><b>' + views.length + '</b><span>Seitenaufrufe in 14 Tagen</span></div><div class="stat"><b>' + Object.keys(devs).length + '</b><span>Verschiedene Geräte</span></div><div class="stat"><b>' + byDay[days[13]] + '</b><span>Aufrufe heute</span></div></div>' +
+      '<div class="bars" role="img" aria-label="Aufrufe pro Tag">' + days.map(d => '<div><span>' + byDay[d] + '</span><i style="height:' + Math.round(byDay[d] / max * 100) + '%"></i><span>' + d.slice(8) + '.</span></div>').join('') + '</div>' +
+      (top.length ? '<h2 class="sec2">Beliebteste Seiten</h2><div class="scroll"><table class="tbl"><thead><tr><th>Seite</th><th>Aufrufe</th></tr></thead><tbody>' + top.map(p => '<tr><td>' + esc(p) + '</td><td>' + pages[p] + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Noch keine Aufrufe gespeichert.</p>');
+    const c = await q(sb.from('site_config').select('value').eq('key', 'analytics_public').maybeSingle()); pp.checked = !c || c.value !== 'false';
+  } catch (e) { A.fail(e, 'Statistiken laden'); st.innerHTML = '<p class="empty">Die Statistiken konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  pp.onchange = async () => { try { await q(sb.from('site_config').upsert({ key: 'analytics_public', value: pp.checked ? 'true' : 'false' })); A.toast('Gespeichert.'); } catch (er) { pp.checked = !pp.checked; A.fail(er, 'Speichern'); } };
+})();
+</script>
+</body>
+</html>

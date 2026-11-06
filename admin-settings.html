@@ -8,15 +8,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/tournament.js?v=5"></script>
-<script src="js/admin.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -24,7 +24,7 @@
   const view = await A.mount('settings', { title: 'Funktionen', admin: true });
   if (!view) return;
   view.innerHTML = '<h1 class="pg-h">Funktionen</h1><p class="mute" style="margin-bottom:14px">Schalte Bereiche der Seite ein oder aus. Ausgeschaltete Bereiche verschwinden aus der Navigation und lassen sich nicht mehr öffnen.</p><div id="fl"><div class="sk" style="height:120px"></div></div>' +
-    '<h2 class="sec2">Aufräum-Modus</h2><div id="mt"></div><h2 class="sec2">Backup</h2><p class="mute">Lädt alle Daten als Datei herunter. Die Datei enthält die geheimen Team-Tags, bewahre sie sicher auf.</p><div class="acts"><button class="btn" id="bk" type="button">Backup herunterladen</button></div>';
+    '<h2 class="sec2">Neue Teams</h2><form id="cf" style="max-width:420px"><label class="fld"><span>Code für „Team erstellen“</span><input id="cc" type="text" minlength="8" autocomplete="off"><small>Wer den Code kennt, kann ein neues Team vorschlagen. Nimm einen langen Code. Leer lassen schaltet die Funktion aus.</small></label><button class="btn" type="submit">Code speichern</button></form><h2 class="sec2">Aufräum-Modus</h2><div id="mt"></div><h2 class="sec2">Backup</h2><p class="mute">Lädt alle Daten als Datei herunter. Die Datei enthält die geheimen Team-Tags, bewahre sie sicher auf.</p><div class="acts"><button class="btn" id="bk" type="button">Backup herunterladen</button></div>';
   const fl = document.getElementById('fl'), mt = document.getElementById('mt');
   let on = false;
   const drawM = () => { mt.innerHTML = '<p>' + (on ? 'Der Aufräum-Modus ist <b>an</b>. Besucher sehen nur eine Sperrseite, Admins können weiterarbeiten.' : 'Der Aufräum-Modus ist aus.') + '</p><div class="acts"><button class="btn' + (on ? '' : ' pri') + '" id="mb" type="button">' + (on ? 'Ausschalten' : 'Einschalten') + '</button></div>'; };
@@ -44,6 +44,16 @@
     if (!on && !confirm('Aufräum-Modus einschalten? Alle Besucher außer Admins sehen dann nur eine Sperrseite.')) return;
     try { await q(sb.from('site_config').upsert({ key: 'maintenance', value: on ? 'off' : 'on' })); on = !on; drawM(); A.toast(on ? 'Aufräum-Modus ist an.' : 'Aufräum-Modus ist aus.'); }
     catch (er) { A.fail(er, 'Speichern'); }
+  };
+  const cc = document.getElementById('cc');
+  q(sb.from('app_settings').select('value').eq('key', 'TEAM_CREATE_CODE').maybeSingle()).then(r => { cc.value = (r && r.value) || ''; }).catch(() => {});
+  document.getElementById('cf').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      const v = cc.value.trim();
+      if (v) await q(sb.from('app_settings').upsert({ key: 'TEAM_CREATE_CODE', value: v })); else await q(sb.from('app_settings').delete().eq('key', 'TEAM_CREATE_CODE'));
+      A.toast(v ? 'Code gespeichert.' : 'Team-Erstellung ist ausgeschaltet.');
+    } catch (er) { A.fail(er, 'Speichern'); }
   };
   document.getElementById('bk').onclick = async e => {
     const b = e.currentTarget; b.disabled = true;

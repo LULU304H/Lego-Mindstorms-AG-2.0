@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament;
+  document.body.className = 'proj'; document.title = 'Spiel – Mindstorms Arena';
+  const root = document.getElementById('app');
+  await A.loadFlags();
+  const id = new URLSearchParams(location.search).get('id');
+  if (!A.on('match_presentation')) { root.innerHTML = '<p class="empty">Die Spiel-Präsentation ist gerade ausgeschaltet.</p>'; return; }
+  const get = async () => { const r = await sb.from('matches').select('*').eq('id', id).maybeSingle(); if (r.error) throw r.error; return r.data; };
+  let m;
+  try { m = await get(); } catch (e) { A.fail(e, 'Spiel laden'); root.innerHTML = '<p class="empty">Das Spiel konnte nicht geladen werden. Lade die Seite neu.</p>'; return; }
+  if (!m) { root.innerHTML = '<p class="empty">Dieses Spiel gibt es nicht.</p>'; return; }
+  const ids = [m.team1_id, m.team2_id].filter(Boolean);
+  const cr = ids.length ? await sb.from('teams').select('id,color').in('id', ids) : { data: [] };
+  const col = {}; (cr.data || []).forEach(t => { col[t.id] = /^#[0-9a-f]{6}$/i.test(t.color || '') ? t.color : null; });
+  const cam = A.on('live_camera');
+  root.innerHTML = '<div class="vsx"><video id="cv" playsinline muted hidden></video><div class="projbar"><div><span class="chip">' + esc(m.round || 'Spiel') + '</span> <span class="mute">' + esc([m.competition_name, m.arena].filter(Boolean).join(', ')) + '</span></div><div style="display:flex;gap:10px;flex-wrap:wrap">' +
+    (cam ? '<button class="btn" id="cb" type="button">Kamera</button>' : '') + '<button class="btn" id="fs" type="button">Vollbild</button><a class="btn" href="' + (m.competition_id ? 'competition.html?id=' + m.competition_id : 'matches.html') + '">Schließen</a></div></div>' +
+    '<div class="vsrow"><div class="tm" style="--c:' + (col[m.team1_id] || '#FF8A00') + '"><h2>' + (m.team1_name ? esc(m.team1_name) : 'Noch offen') + '</h2><span class="sc" id="s1">–</span></div><div class="vs">VS</div>' +
+    '<div class="tm" style="--c:' + (col[m.team2_id] || '#4DA3FF') + '"><h2>' + (m.team2_name ? esc(m.team2_name) : 'Noch offen') + '</h2><span class="sc" id="s2">–</span></div></div><p class="lead" id="st" style="text-align:center;margin:0"></p></div>';
+  const upd = () => {
+    const done = m.status === 'FINISHED' && m.result !== 'Freilos', sc = T.parse(m.result);
+    document.getElementById('s1').textContent = done ? sc[0] : '–'; document.getElementById('s2').textContent = done ? sc[1] : '–';
+    const win = done ? (m.outcome === 'team1' ? m.team1_name : m.outcome === 'team2' ? m.team2_name : null) : null;
+    document.getElementById('st').textContent = m.status === 'LIVE' ? 'Läuft jetzt' : m.status === 'CANCELLED' ? 'Abgesagt' : done ? (win ? 'Sieger: ' + win : 'Unentschieden') : [m.date ? A.fmtDate(m.date) : '', m.time ? m.time.slice(0, 5) + ' Uhr' : ''].filter(Boolean).join(', ');
+  };
+  upd();
+  setInterval(async () => { try { const n = await get(); if (n) { m = n; upd(); } } catch (e) {} }, 5000);
+  document.getElementById('fs').onclick = () => { const d = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (d.requestFullscreen) d.requestFullscreen(); };
+  let stream = null;
+  const cb = document.getElementById('cb');
+  if (cb) cb.onclick = async () => {
+    const v = document.getElementById('cv');
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; v.hidden = true; return; }
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }); v.srcObject = stream; v.hidden = false; await v.play(); }
+    catch (e) { stream = null; A.toast('Die Kamera lässt sich nicht öffnen. Erlaube den Zugriff im Browser.', true); }
+  };
+})();
+</script>
+</body>
+</html>

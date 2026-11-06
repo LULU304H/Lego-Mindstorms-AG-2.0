@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('files', { title: 'Dateien', admin: true });
+  if (!view) return;
+  let prj = [], teams = [];
+  view.innerHTML = '<h1 class="pg-h">Dateien</h1><h2 class="sec2">Projekte</h2><div id="pj"></div><h2 class="sec2">Roboter-Bilder</h2><div id="im"></div>';
+  const pj = document.getElementById('pj'), im = document.getElementById('im');
+  const draw = () => {
+    pj.innerHTML = prj.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Titel</th><th>Datei</th><th>Öffentlich</th><th></th></tr></thead><tbody>' + prj.map((p, i) =>
+      '<tr><td>' + esc(p.team_name || '') + '</td><td>' + esc(p.title) + (p.description ? '<br><span class="mute">' + esc(p.description) + '</span>' : '') + '</td><td>' + esc(p.file_name || '') + '</td><td><input type="checkbox" data-pub="' + i + '"' + (p.is_public ? ' checked' : '') + ' aria-label="Öffentlich"></td><td class="act"><button class="btn sm" data-dl="' + i + '" type="button">Herunterladen</button> <button class="btn sm del" data-dp="' + i + '" type="button">Löschen</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Noch keine Projekte hochgeladen.</p>';
+    const withImg = teams.filter(t => (t.robot_images || []).length);
+    im.innerHTML = withImg.length ? withImg.map(t => '<h3 style="margin-top:18px">' + esc(t.name) + '</h3><div class="gal">' + t.robot_images.map((u, k) => '<figure><img src="' + esc(u) + '" alt="Roboter von ' + esc(t.name) + '" loading="lazy"><button class="btn sm del" data-di="' + t.id + '|' + k + '" type="button">Entfernen</button></figure>').join('') + '</div>').join('') : '<p class="empty">Noch keine freigegebenen Bilder. Neue Bilder genehmigst du unter „Anfragen“.</p>';
+  };
+  const load = async () => {
+    try { prj = await q(sb.from('projects').select('*').order('created_at', { ascending: false })); teams = await q(sb.from('teams').select('id,name,robot_images').order('name')); draw(); }
+    catch (e) { A.fail(e, 'Dateien laden'); pj.innerHTML = '<p class="empty">Die Dateien konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  };
+  view.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.dataset.dl != null) {
+        const r = await sb.storage.from('team-projects').createSignedUrl(prj[+b.dataset.dl].file_path, 120); if (r.error) throw r.error;
+        window.open(r.data.signedUrl, '_blank');
+      } else if (b.dataset.dp != null) {
+        const p = prj[+b.dataset.dp]; if (!confirm('Das Projekt „' + p.title + '“ samt Datei löschen? Das lässt sich nicht rückgängig machen.')) return;
+        await sb.storage.from('team-projects').remove([p.file_path]); await q(sb.from('projects').delete().eq('id', p.id)); A.toast('Gelöscht.'); load();
+      } else if (b.dataset.di != null) {
+        const a = b.dataset.di.split('|'), t = teams.find(x => x.id === a[0]), u = t.robot_images[+a[1]];
+        if (!confirm('Dieses Bild entfernen?')) return;
+        const path = u.split('/robot-images/')[1]; if (path) await sb.storage.from('robot-images').remove([decodeURIComponent(path)]);
+        await q(sb.from('teams').update({ robot_images: t.robot_images.filter((_, k) => k !== +a[1]) }).eq('id', t.id)); A.toast('Bild entfernt.'); load();
+      }
+    } catch (er) { A.fail(er, 'Aktion'); }
+  };
+  view.onchange = async e => {
+    const c = e.target.closest('[data-pub]'); if (!c) return;
+    try { await q(sb.from('projects').update({ is_public: c.checked }).eq('id', prj[+c.dataset.pub].id)); prj[+c.dataset.pub].is_public = c.checked; A.toast('Gespeichert.'); }
+    catch (er) { c.checked = !c.checked; A.fail(er, 'Speichern'); }
+  };
+  load();
+})();
+</script>
+</body>
+</html>

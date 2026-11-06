@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/admin.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -35,12 +35,22 @@
     const p = r.payload || {};
     if (r.type === 'TEAM_INFO') return ['name', 'description', 'color'].filter(k => p[k] != null).map(k => ({ name: 'Name', description: 'Beschreibung', color: 'Farbe' }[k]) + ': ' + str(p[k], 200)).join('; ');
     if (r.type === 'PROFILE_VISIBILITY') return p.public_profile ? 'Profil sichtbar machen' : 'Profil verstecken';
+    if (r.type === 'TEAM_CREATE') return str(p.name, 80) + (p.description ? ': ' + str(p.description, 200) : '');
     if (r.type === 'MEMBER_REMOVE') return str(p.first_name, 60) + ' ' + str(p.last_name, 60);
     return [str(p.first_name, 60) + ' ' + str(p.last_name, 60), p.class_name ? 'Klasse ' + str(p.class_name, 20) : '', p.role ? 'Rolle ' + p.role : ''].filter(Boolean).join(', ');
   };
   // Nur bekannte Felder werden übernommen, alles andere aus der Anfrage wird ignoriert
   async function applyReq(r) {
     const p = r.payload || {}, tid = r.team_id;
+    if (r.type === 'TEAM_CREATE') {
+      const nm = str(p.name, 80); if (!nm) throw new Error('Der Teamname fehlt.');
+      const t = await q(sb.from('teams').insert({ name: nm, description: str(p.description, 500) || null }).select().single());
+      const tg = Admin.genTag();
+      await q(sb.from('team_access').insert({ team_id: t.id, tag: tg }));
+      await q(sb.from('change_requests').update({ team_id: t.id }).eq('id', r.id));
+      alert('Das Team „' + nm + '“ ist angelegt.\n\nTeam-Tag zum Weitergeben:\n' + tg + '\n\nDen Tag siehst du später auch unter „Teams“.');
+      return;
+    }
     if (!tid) throw new Error('Diese Anfrage gehört zu keinem Team.');
     if (r.type === 'TEAM_INFO') {
       const u = {};
@@ -60,25 +70,41 @@
     } else if (r.type === 'MEMBER_REMOVE') {
       if (!isId(p.id)) throw new Error('Das Mitglied ist unbekannt.');
       await q(sb.from('team_members').delete().eq('id', p.id).eq('team_id', tid));
+    } else if (r.type === 'ROBOT_IMAGES') {
+      if (!p.path || String(p.path).indexOf(tid + '/') !== 0) throw new Error('Der Bildpfad passt nicht zum Team.');
+      const cur = await q(sb.from('teams').select('robot_images').eq('id', tid).single());
+      if ((cur.robot_images || []).length >= 3) throw new Error('Das Team hat schon drei freigegebene Bilder.');
+      const dl = await sb.storage.from('team-pending').download(p.path); if (dl.error) throw dl.error;
+      const dest = tid + '/' + p.path.split('/').pop();
+      const up = await sb.storage.from('robot-images').upload(dest, dl.data, { contentType: dl.data.type, upsert: true }); if (up.error) throw up.error;
+      const url = sb.storage.from('robot-images').getPublicUrl(dest).data.publicUrl;
+      await q(sb.from('teams').update({ robot_images: (cur.robot_images || []).concat(url) }).eq('id', tid));
+      await sb.storage.from('team-pending').remove([p.path]);
     } else throw new Error('Diese Art von Anfrage kann noch nicht bearbeitet werden.');
   }
   async function decide(r, ok) {
     const me = (await sb.auth.getSession()).data.session;
-    if (ok) await applyReq(r);
+    if (ok) await applyReq(r); else if (r.type === 'ROBOT_IMAGES' && r.payload && r.payload.path) await sb.storage.from('team-pending').remove([r.payload.path]);
     await q(sb.from('change_requests').update({ status: ok ? 'APPROVED' : 'REJECTED', reviewed_by_name: me ? me.user.email : null }).eq('id', r.id));
   }
   function draw() {
     const cr = document.getElementById('cr'), hr = document.getElementById('hr');
-    cr.innerHTML = reqs.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Anfrage</th><th>Inhalt</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + reqs.map((r, i) => '<tr><td>' + esc(r.team_name || '') + '</td><td>' + esc(TYPES[r.type] || r.type) + '</td><td>' + esc(detail(r)) + (r.note ? '<br><span class="mute">Notiz: ' + esc(r.note) + '</span>' : '') + '</td><td>' + fmt(r.created_at) + '</td><td><span class="chip ' + r.status + '">' + ST[r.status] + '</span></td><td class="act">' +
+    cr.innerHTML = reqs.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Anfrage</th><th>Inhalt</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + reqs.map((r, i) => '<tr><td>' + esc(r.team_name || '') + '</td><td>' + esc(TYPES[r.type] || r.type) + '</td><td>' + (r.type === 'ROBOT_IMAGES' ? '<img class="thumb" data-p="' + esc((r.payload || {}).path || '') + '" alt="Vorschau">' + esc((r.payload || {}).file_name || '') : esc(detail(r))) + (r.note ? '<br><span class="mute">Notiz: ' + esc(r.note) + '</span>' : '') + '</td><td>' + fmt(r.created_at) + '</td><td><span class="chip ' + r.status + '">' + ST[r.status] + '</span></td><td class="act">' +
       (r.status === 'PENDING' ? '<button class="btn sm pri" data-a="' + i + '" type="button">Genehmigen</button> <button class="btn sm del" data-r="' + i + '" type="button">Ablehnen</button>' : '<span class="mute">' + esc(r.reviewed_by_name || '') + '</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Keine Änderungsanfragen.</p>';
     hr.innerHTML = helps.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Team</th><th>Nachricht</th><th>Datum</th><th>Status</th><th></th></tr></thead><tbody>' + helps.map((h, i) => '<tr><td>' + esc(h.team_name || '') + '</td><td>' + esc(h.note || '–') + '</td><td>' + fmt(h.created_at) + '</td><td><span class="chip ' + h.status + '">' + ST[h.status] + '</span></td><td class="act">' + (h.status === 'OPEN' ? '<button class="btn sm" data-h="' + i + '" type="button">Erledigt</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Keine Hilfe-Anfragen.</p>';
+  }
+  async function thumbs() {
+    const els = [].slice.call(document.querySelectorAll('img[data-p]')); if (!els.length) return;
+    const r = await sb.storage.from('team-pending').createSignedUrls(els.map(i => i.dataset.p), 900), by = {};
+    (r.data || []).forEach(x => { by[x.path] = x.signedUrl; });
+    els.forEach(i => { if (by[i.dataset.p]) i.src = by[i.dataset.p]; });
   }
   async function load() {
     try {
       reqs = await q(sb.from('change_requests').select('*').order('created_at', { ascending: false }).limit(100));
       helps = await q(sb.from('help_requests').select('*').order('created_at', { ascending: false }).limit(100));
       reqs.sort((a, b) => (b.status === 'PENDING') - (a.status === 'PENDING')); helps.sort((a, b) => (b.status === 'OPEN') - (a.status === 'OPEN'));
-      draw();
+      draw(); thumbs();
     } catch (e) { A.fail(e, 'Anfragen laden'); document.getElementById('cr').innerHTML = '<p class="empty">Die Anfragen konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
   }
   view.onclick = async e => {

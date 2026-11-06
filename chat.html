@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc;
+  const view = await A.mount('chat', { title: 'Open Chat' });
+  if (!view) return;
+  if (!A.on('chat')) { view.innerHTML = '<p class="empty">Der Open Chat ist gerade ausgeschaltet.</p>'; return; }
+  const ss = { get() { try { return sessionStorage.getItem('arena_tag'); } catch (e) { return null; } }, set(v) { try { sessionStorage.setItem('arena_tag', v); } catch (e) {} } };
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  view.innerHTML = '<h1 class="pg-h">Open Chat</h1><div class="chatbox"><div class="chatlist" id="cl"></div><form class="chatform" id="cf">' +
+    (ss.get() ? '' : '<input id="ct" type="text" placeholder="Team-Tag" autocomplete="off" required>') +
+    '<input id="cn" type="text" placeholder="Dein Name (freiwillig)" maxlength="40" value="' + esc(ls.get('arena_chat_name') || '') + '">' +
+    '<input id="cx" type="text" placeholder="Nachricht" maxlength="300" autocomplete="off" required><button class="btn pri" type="submit">Senden</button></form></div>' +
+    '<p class="form-msg" id="cm" role="alert" hidden style="margin-top:12px"></p>';
+  const cl = document.getElementById('cl'), cm = document.getElementById('cm');
+  let msgs = [], first = true;
+  const time = s => new Date(s).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const draw = () => {
+    const near = cl.scrollHeight - cl.scrollTop - cl.clientHeight < 80;
+    cl.innerHTML = msgs.length ? msgs.map(m => '<div class="bub"><b>' + esc(m.sender_name || m.team_name || 'Team') + (m.team_name && m.sender_name && m.sender_name !== m.team_name ? ' (' + esc(m.team_name) + ')' : '') + '</b><span>' + esc(m.text) + '</span><small>' + time(m.created_at) + '</small></div>').join('') : '<p class="empty">Noch keine Nachrichten. Schreib die erste!</p>';
+    if (near || first) cl.scrollTop = cl.scrollHeight; first = false;
+  };
+  const load = async () => {
+    const r = await sb.from('open_chat_messages').select('*').order('created_at', { ascending: false }).limit(100);
+    if (r.error) { A.fail(r.error, 'Chat laden'); return; }
+    msgs = r.data.reverse(); draw();
+  };
+  await load();
+  sb.channel('open-chat')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'open_chat_messages' }, p => { if (!msgs.some(m => m.id === p.new.id)) { msgs.push(p.new); draw(); } })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'open_chat_messages' }, p => { msgs = msgs.filter(m => m.id !== p.old.id); draw(); })
+    .subscribe();
+  setInterval(load, 20000);
+  document.getElementById('cf').onsubmit = async e => {
+    e.preventDefault(); cm.hidden = true;
+    const ct = document.getElementById('ct'), tag = ss.get() || (ct ? ct.value.trim() : ''), name = document.getElementById('cn').value.trim(), tx = document.getElementById('cx');
+    const b = e.target.querySelector('button'); b.disabled = true;
+    const r = await sb.rpc('chat_send', { p_tag: tag, p_sender: name || null, p_text: tx.value });
+    if (r.error) { cm.textContent = /Ungültiger Team-Tag/.test(r.error.message) ? 'Dieser Team-Tag stimmt nicht.' : r.error.message; cm.hidden = false; }
+    else { ss.set(tag); ls.set('arena_chat_name', name); if (ct) ct.remove(); tx.value = ''; await load(); }
+    b.disabled = false;
+  };
+})();
+</script>
+</body>
+</html>

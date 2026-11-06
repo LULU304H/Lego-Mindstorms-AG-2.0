@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/tournament.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -42,7 +42,7 @@
   const rounds = ms.map(m => m.round).filter((r, i, a) => a.indexOf(r) === i);
   if (!ms.length) h += '<p class="empty sec2">Die Spiele werden noch ausgelost.</p>';
   else if (c.format === 'KO') {
-    h += '<h2 class="sec2">Turnierbaum</h2><div class="brk">' + rounds.map(r => '<div><h3>' + esc(r) + '</h3>' + ms.filter(m => m.round === r).map(m => T.box(m, esc)).join('') + '</div>').join('') + '</div>';
+    h += '<div class="bar-h sec2"><h2 style="margin:0">Turnierbaum</h2>' + (A.on('bracket_projection') ? '<a class="btn sm" href="bracket.html?id=' + c.id + '">Vollbild</a>' : '') + '</div><div class="brk">' + rounds.map(r => '<div><h3>' + esc(r) + '</h3>' + ms.filter(m => m.round === r).map(m => T.box(m, esc)).join('') + '</div>').join('') + '</div>';
   } else {
     const st = T.standings(c, ms, teams);
     h += '<section class="panel sec2"><h2>Tabelle</h2><div class="scroll"><table class="tbl"><thead><tr><th>Platz</th><th>Team</th><th>Spiele</th><th>S</th><th>U</th><th>N</th><th>Diff.</th><th>Punkte</th></tr></thead><tbody>' +

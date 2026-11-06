@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=6">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/tournament.js?v=6"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, T = window.Tournament;
+  document.body.className = 'proj'; document.title = 'Turnierbaum – Mindstorms Arena';
+  const root = document.getElementById('app');
+  await A.loadFlags();
+  const id = new URLSearchParams(location.search).get('id');
+  if (!A.on('bracket_projection')) { root.innerHTML = '<p class="empty">Die Turnierbaum-Ansicht ist gerade ausgeschaltet.</p>'; return; }
+  root.innerHTML = '<div class="projbar"><h1 id="tt">Turnierbaum</h1><div style="display:flex;gap:10px"><button class="btn" id="fs" type="button">Vollbild</button><a class="btn" id="bk" href="competitions.html">Schließen</a></div></div><div id="bd"><div class="sk"></div></div>';
+  document.getElementById('fs').onclick = () => { const d = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (d.requestFullscreen) d.requestFullscreen(); };
+  const bd = document.getElementById('bd');
+  const admin = await A.checkAdmin();
+  const load = async () => {
+    const res = await Promise.all([sb.from('competitions').select('*').eq('id', id).maybeSingle(), sb.from('matches').select('*').eq('competition_id', id)]);
+    const bad = res[0].error || res[1].error;
+    if (bad) { A.fail(bad, 'Turnierbaum laden'); if (!bd.querySelector('.brk')) bd.innerHTML = '<p class="empty">Der Turnierbaum konnte nicht geladen werden. Lade die Seite neu.</p>'; return; }
+    const c = res[0].data;
+    if (!c || (c.status === 'DRAFT' && !admin)) { bd.innerHTML = '<p class="empty">Diesen Wettbewerb gibt es nicht oder er ist noch nicht veröffentlicht.</p>'; return; }
+    document.getElementById('tt').textContent = c.name; document.getElementById('bk').href = 'competition.html?id=' + c.id;
+    if (c.format !== 'KO') { bd.innerHTML = '<p class="empty">Dieser Wettbewerb wird „Jeder gegen jeden“ gespielt und hat keinen Turnierbaum.</p>'; return; }
+    const ms = T.sort(res[1].data), rounds = ms.map(m => m.round).filter((r, i, a) => a.indexOf(r) === i);
+    bd.innerHTML = ms.length ? '<div class="brk">' + rounds.map(r => '<div><h3>' + esc(r) + '</h3>' + ms.filter(m => m.round === r).map(m => T.box(m, esc)).join('') + '</div>').join('') + '</div>' + (c.winner_team_name ? '<div class="panel banner">Sieger: <b>' + esc(c.winner_team_name) + '</b></div>' : '') : '<p class="empty">Die Spiele werden noch ausgelost.</p>';
+  };
+  await load(); setInterval(load, 10000);
+})();
+</script>
+</body>
+</html>

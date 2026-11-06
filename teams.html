@@ -8,13 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -23,10 +23,10 @@
   if (!view) return;
   if (!A.on('teams')) { view.innerHTML = '<p class="empty">Die Teams sind gerade ausgeschaltet.</p>'; return; }
   view.innerHTML = '<h1 class="pg-h">Teams</h1><div id="ls"><div class="sk" style="height:84px"></div></div>';
-  const r = await sb.from('teams').select('id,name,description,color').eq('public_profile', true).order('name'), ls = document.getElementById('ls');
+  const r = await sb.from('teams').select('id,name,description,color,robot_images').eq('public_profile', true).order('name'), ls = document.getElementById('ls');
   if (r.error) { A.fail(r.error, 'Teams laden'); ls.innerHTML = '<div class="empty">Die Teams konnten nicht geladen werden. Lade die Seite neu.</div>'; return; }
   if (!r.data.length) { ls.innerHTML = '<div class="empty">Noch kein Team hat sein Profil veröffentlicht.</div>'; return; }
-  ls.innerHTML = r.data.map(t => '<div class="panel tcard"><i style="background:' + esc(t.color || '#FF8A00') + '"></i><div><h2 style="margin:0 0 4px;font-size:1.2rem">' + esc(t.name) + '</h2><span class="mute">' + esc(t.description || 'Dieses Team hat noch keine Beschreibung.') + '</span></div></div>').join('');
+  ls.innerHTML = r.data.map(t => '<div class="panel tcard"><i style="background:' + esc(t.color || '#FF8A00') + '"></i><div><h2 style="margin:0 0 4px;font-size:1.2rem">' + esc(t.name) + '</h2><span class="mute">' + esc(t.description || 'Dieses Team hat noch keine Beschreibung.') + '</span>' + ((t.robot_images || []).length ? '<div class="gal">' + t.robot_images.map(u => '<figure><img src="' + esc(u) + '" alt="Roboter von ' + esc(t.name) + '" loading="lazy"></figure>').join('') + '</div>' : '') + '</div></div>').join('');
 })();
 </script>
 </body>

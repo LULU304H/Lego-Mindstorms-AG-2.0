@@ -8,13 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 <script>
 (async function () {
   if (!window.Arena) return;
@@ -29,12 +29,14 @@
   const roleName = r => (ROLES.find(x => x[0] === r) || [0, r])[1];
   const rpc = async (fn, args) => { const r = await sb.rpc(fn, args); if (r.error) throw r.error; return r.data; };
   const dlg = document.createElement('dialog'); document.body.append(dlg);
-  let tag = store.get(), d = null, tab = 'ov';
+  let tag = store.get(), d = null, tab = 'ov', comps = [];
 
   async function enter(t) {
     const data = await rpc('team_login', { p_tag: t });
     if (!data) return false;
-    tag = t; store.set(t); d = data; return true;
+    tag = t; store.set(t); d = data;
+    if (A.on('participation_approval')) { const c = await sb.from('competitions').select('id,name,date').eq('status', 'ACTIVE').order('date'); comps = c.error ? [] : c.data; }
+    return true;
   }
   function ask(title, body, onSubmit, okText) {
     dlg.innerHTML = '<form id="fm"><h2 class="dlg-h">' + title + '</h2>' + body + '<p class="form-msg" id="msg" role="alert" hidden></p><div class="dlg-act"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn pri" type="submit">' + (okText || 'Absenden') + '</button></div></form>';
@@ -55,12 +57,12 @@
   function loginView(msg) {
     view.innerHTML = '<div class="lgbox" style="margin:8vh auto 0"><h1 class="pg-h">Mein Team</h1><p class="lead" style="margin:0 0 20px">Gib den geheimen Team-Tag ein, den du von den AG-Leitern bekommen hast.</p>' +
       '<form id="lf"><label class="fld"><span>Team-Tag</span><input id="tg" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label>' +
-      '<p class="form-msg" id="lm" role="alert"' + (msg ? '' : ' hidden') + '>' + esc(msg || '') + '</p><button class="btn pri" type="submit">Öffnen</button></form></div>';
+      '<p class="form-msg" id="lm" role="alert"' + (msg ? '' : ' hidden') + '>' + esc(msg || '') + '</p><button class="btn pri" type="submit">Öffnen</button></form><p style="margin-top:22px"><a href="team-create.html" style="color:var(--or2)">Noch kein Team? Neues Team vorschlagen</a></p></div>';
     const f = document.getElementById('lf');
     f.onsubmit = async e => {
       e.preventDefault();
       const b = f.querySelector('button'), m = document.getElementById('lm'); b.disabled = true; m.hidden = true;
-      try { if (await enter(document.getElementById('tg').value.trim())) { tab = 'ov'; render(); return; } m.textContent = 'Diesen Team-Tag gibt es nicht. Prüfe die Schreibweise.'; m.hidden = false; }
+      try { if (await enter(document.getElementById('tg').value.trim())) { tab = 'ov'; rpc('team_ping', { p_tag: tag }).catch(() => {}); render(); return; } m.textContent = 'Diesen Team-Tag gibt es nicht. Prüfe die Schreibweise.'; m.hidden = false; }
       catch (er) { A.fail(er, 'Anmeldung'); m.textContent = 'Die Anmeldung hat nicht geklappt. Versuche es später noch einmal.'; m.hidden = false; }
       b.disabled = false;
     };
@@ -75,7 +77,7 @@
 
   function render() {
     const t = d.team, pend = d.requests.filter(r => r.status === 'PENDING').length;
-    const tabs = [['ov', 'Übersicht'], ['mem', 'Mitglieder'], ['ed', 'Bearbeiten'], ['msg', 'Nachrichten'], ['req', 'Anfragen' + (pend ? ' (' + pend + ')' : '')]];
+    const tabs = [['ov', 'Übersicht'], ['mem', 'Mitglieder'], ['ed', 'Bearbeiten'], ['img', 'Bilder'], ['prj', 'Projekte']].concat(A.on('participation_approval') ? [['wb', 'Wettbewerbe']] : [], [['msg', 'Nachrichten'], ['req', 'Anfragen' + (pend ? ' (' + pend + ')' : '')]]);
     let h = '<div class="teamhead"><h1 class="pg-h" style="margin:0"><i class="dot" style="background:' + esc(t.color || '#FF8A00') + ';width:16px;height:16px"></i>' + esc(t.name) + '</h1><div style="display:flex;gap:10px;flex-wrap:wrap">' +
       (A.on('help_requests') ? '<button class="btn" id="help" type="button"' + (d.help_open ? ' disabled' : '') + '>' + (d.help_open ? 'Hilfe ist angefragt' : 'Hilfe anfordern') + '</button>' : '') + '<button class="btn" id="out" type="button">Abmelden</button></div></div>' +
       '<div class="seg" role="group" aria-label="Bereich wählen">' + tabs.map(x => '<button type="button" data-tab="' + x[0] + '" aria-pressed="' + (x[0] === tab) + '">' + x[1] + '</button>').join('') + '</div><div id="tb" style="margin-top:22px">';
@@ -92,6 +94,23 @@
     if (tab === 'msg') h += '<form id="mf" style="max-width:560px"><label class="fld"><span>Betreff (freiwillig)</span><input id="m_sub" type="text" maxlength="120"></label><label class="fld"><span>Nachricht an die Admins</span><textarea id="m_body" rows="3" maxlength="2000" required></textarea></label><p class="form-msg" id="mm" role="alert" hidden></p><button class="btn pri" type="submit">Senden</button></form>' +
       '<div class="msgs">' + (d.messages.length ? d.messages.map(m => '<div class="panel"><h3>' + esc(m.subject || 'Nachricht') + '</h3><span class="mute">' + (m.direction === 'TEAM_TO_ADMIN' ? 'Von euch' : m.broadcast ? 'Von den Admins an alle' : 'Von den Admins an euch') + ', ' + new Date(m.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }) + '</span><p>' + esc(m.body) + '</p></div>').join('') : '<p class="empty">Noch keine Nachrichten.</p>') + '</div>';
     if (tab === 'req') h += d.requests.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Anfrage</th><th>Inhalt</th><th>Datum</th><th>Status</th></tr></thead><tbody>' + d.requests.map(r => '<tr><td>' + esc(TYPES[r.type] || r.type) + '</td><td>' + esc(summary(r)) + '</td><td>' + new Date(r.created_at).toLocaleDateString('de-DE') + '</td><td><span class="chip ' + r.status + '">' + ST[r.status] + '</span></td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Ihr habt noch nichts angefragt.</p>';
+    if (tab === 'img') {
+      const imgs = t.robot_images || [], wait = d.requests.filter(r => r.type === 'ROBOT_IMAGES' && r.status === 'PENDING').length, full = imgs.length + wait >= 3;
+      h += '<p class="mute">Ihr könnt bis zu drei Bilder von eurem Roboter zeigen. Ein Admin prüft jedes Bild zuerst.</p>' +
+        (imgs.length ? '<div class="gal">' + imgs.map(u => '<figure><img src="' + esc(u) + '" alt="Roboter von ' + esc(t.name) + '" loading="lazy"></figure>').join('') + '</div>' : '<p class="empty">Noch kein freigegebenes Bild.</p>') +
+        (wait ? '<p class="mute">' + wait + (wait === 1 ? ' Bild wartet' : ' Bilder warten') + ' auf die Freigabe.</p>' : '') +
+        (full ? '<p class="mute">Mehr als drei Bilder sind nicht möglich.</p>' : '<form id="imf" style="max-width:480px;margin-top:14px"><label class="fld"><span>Bild auswählen (PNG, JPG oder WebP, bis 5 MB)</span><input id="im_f" type="file" accept="image/png,image/jpeg,image/webp" required></label><p class="form-msg" id="em" role="alert" hidden></p><button class="btn pri" type="submit">Bild hochladen</button></form>');
+    }
+    if (tab === 'prj') {
+      h += '<form id="pf" style="max-width:520px"><label class="fld"><span>Titel</span><input id="p_t" type="text" maxlength="100" required></label><label class="fld"><span>Beschreibung (freiwillig)</span><textarea id="p_d" rows="2" maxlength="500"></textarea></label><label class="fld"><span>Datei (Code, ZIP oder PDF, bis 10 MB)</span><input id="p_f" type="file" required></label><p class="form-msg" id="em" role="alert" hidden></p><button class="btn pri" type="submit">Projekt hochladen</button></form>' +
+        '<h2 class="sec2">Eure Projekte</h2>' + (d.projects.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Titel</th><th>Datei</th><th>Datum</th><th>Sichtbar</th></tr></thead><tbody>' + d.projects.map(p => '<tr><td>' + esc(p.title) + '</td><td>' + esc(p.file_name || '') + '</td><td>' + new Date(p.created_at).toLocaleDateString('de-DE') + '</td><td>' + (p.is_public ? 'Öffentlich' : 'Nur für Admins') + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">Noch kein Projekt hochgeladen.</p>');
+    }
+    if (tab === 'wb') {
+      h += comps.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>Wettbewerb</th><th>Datum</th><th>Status</th></tr></thead><tbody>' + comps.map(c => {
+        const pa = d.participations.find(x => x.competition_id === c.id);
+        return '<tr><td>' + esc(c.name) + '</td><td>' + new Date(c.date + 'T00:00').toLocaleDateString('de-DE') + '</td><td>' + (pa ? '<span class="chip ' + pa.approval_status + '">' + ({ PENDING: 'Wartet', APPROVED: 'Zugelassen', REJECTED: 'Abgelehnt' }[pa.approval_status]) + '</span>' : '<button class="btn sm pri" data-pa="' + c.id + '" type="button">Teilnahme anfragen</button>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="empty">Gerade ist kein Wettbewerb für Anmeldungen offen.</p>';
+    }
     view.innerHTML = h + '</div>';
   }
 
@@ -99,6 +118,20 @@
     '<label class="fld"><span>Rolle</span><select id="f_ro">' + ROLES.map(r => '<option value="' + r[0] + '"' + ((m ? m.role : 'Member') === r[0] ? ' selected' : '') + '>' + r[1] + '</option>').join('') + '</select></label>';
   const memberData = () => ({ first_name: val('f_fn'), last_name: val('f_ln'), class_name: val('f_cl') || null, role: val('f_ro') });
 
+  async function upload(kind, file, extra) {
+    if (!file) throw new Error('Bitte wähle eine Datei aus.');
+    const fd = new FormData(); fd.append('tag', tag); fd.append('kind', kind); fd.append('file', file);
+    Object.keys(extra).forEach(k => fd.append(k, extra[k]));
+    const C = window.ARENA_CONFIG, r = await fetch(C.url + '/functions/v1/team-upload', { method: 'POST', headers: { apikey: C.key }, body: fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Der Upload hat nicht geklappt.');
+  }
+  view.addEventListener('click', async e => {
+    const b = e.target.closest('[data-pa]'); if (!b) return;
+    b.disabled = true;
+    try { await rpc('team_request_participation', { p_tag: tag, p_competition: b.dataset.pa }); A.toast('Anfrage gesendet. Ein Admin entscheidet.'); await enter(tag); render(); }
+    catch (er) { b.disabled = false; A.toast(er.message || String(er), true); }
+  });
   view.onclick = e => {
     const b = e.target.closest('button'); if (!b || !d) return;
     if (b.dataset.tab) { tab = b.dataset.tab; render(); }
@@ -119,6 +152,13 @@
         if (Object.keys(p).length) await rpc('team_request_change', { p_tag: tag, p_type: 'TEAM_INFO', p_payload: p });
         if (pub !== t.public_profile) await rpc('team_request_change', { p_tag: tag, p_type: 'PROFILE_VISIBILITY', p_payload: { public_profile: pub } });
         sent(); await enter(tag); tab = 'req'; render();
+      } else if (e.target.id === 'imf' || e.target.id === 'pf') {
+        const btn = e.target.querySelector('button'), old = btn.textContent; btn.disabled = true; btn.textContent = 'Wird hochgeladen …';
+        try {
+          if (e.target.id === 'imf') await upload('image', document.getElementById('im_f').files[0], {});
+          else await upload('project', document.getElementById('p_f').files[0], { title: document.getElementById('p_t').value.trim(), description: document.getElementById('p_d').value.trim() });
+        } catch (er) { btn.disabled = false; btn.textContent = old; throw er; }
+        A.toast(e.target.id === 'imf' ? 'Bild hochgeladen. Ein Admin prüft es.' : 'Projekt hochgeladen.'); await enter(tag); render();
       } else if (e.target.id === 'mf') {
         await rpc('team_send_message', { p_tag: tag, p_subject: document.getElementById('m_sub').value.trim() || null, p_body: document.getElementById('m_body').value });
         A.toast('Nachricht gesendet.'); await enter(tag); render();
