@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/tournament.js?v=5"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc;
+  const view = await A.mount('history', { title: 'Historie' });
+  if (!view) return;
+  if (!A.on('competition_history')) { view.innerHTML = '<p class="empty">Die Historie ist gerade ausgeschaltet.</p>'; return; }
+  view.innerHTML = '<h1 class="pg-h">Historie</h1><div id="ls"><div class="sk" style="height:84px"></div></div>';
+  const r = await sb.from('competitions').select('*').eq('status', 'FINISHED').order('date', { ascending: false }), ls = document.getElementById('ls');
+  if (r.error) { A.fail(r.error, 'Historie laden'); ls.innerHTML = '<div class="empty">Die Historie konnte nicht geladen werden. Lade die Seite neu.</div>'; return; }
+  if (!r.data.length) { ls.innerHTML = '<div class="empty">Noch kein Wettbewerb ist abgeschlossen.</div>'; return; }
+  ls.innerHTML = r.data.map(c => '<a class="panel cp" href="competition.html?id=' + c.id + '"><div><h2>' + esc(c.name) + '</h2><span class="mute">' + esc([A.type(c.type), A.fmtDate(c.date), c.location].filter(Boolean).join(', ')) + '</span></div><span class="chip FINISHED">' + (c.winner_team_name ? 'Sieger: ' + esc(c.winner_team_name) : 'Beendet') + '</span></a>').join('');
+})();
+</script>
+</body>
+</html>

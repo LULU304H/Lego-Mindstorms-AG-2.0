@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/tournament.js?v=5"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc;
+  const view = await A.mount('rules', { title: 'Regeln' });
+  if (!view) return;
+  if (!A.on('rules')) { view.innerHTML = '<p class="empty">Die Regeln sind gerade ausgeschaltet.</p>'; return; }
+  view.innerHTML = '<h1 class="pg-h">Regeln</h1><div id="ls"><div class="sk" style="height:120px"></div></div>';
+  const r = await Promise.all([sb.from('rule_categories').select('*').order('sort_order'), sb.from('rules').select('*').order('sort_order')]), ls = document.getElementById('ls');
+  if (r[0].error || r[1].error) { A.fail(r[0].error || r[1].error, 'Regeln laden'); ls.innerHTML = '<div class="empty">Die Regeln konnten nicht geladen werden. Lade die Seite neu.</div>'; return; }
+  if (!r[0].data.length) { ls.innerHTML = '<div class="empty">Noch keine Regeln eingetragen.</div>'; return; }
+  const col = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#FF8A00';
+  ls.innerHTML = r[0].data.map(c => '<section class="rcat" style="--c:' + col(c.color) + '"><h2>' + esc((c.icon ? c.icon + ' ' : '') + c.title) + '</h2>' + (c.description ? '<p class="mute" style="margin-top:4px">' + esc(c.description) + '</p>' : '') +
+    (r[1].data.filter(x => x.category_id === c.id).map(x => '<div class="rule"><h3>' + esc(x.title) + '</h3><p>' + esc(x.text) + '</p></div>').join('') || '<p class="mute" style="margin-top:12px">In dieser Kategorie gibt es noch keine Regeln.</p>') + '</section>').join('');
+})();
+</script>
+</body>
+</html>

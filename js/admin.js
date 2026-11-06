@@ -6,21 +6,22 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
   const opt = o => Array.isArray(o) ? o : [o, o];
+  const fo = f => typeof f.options === 'function' ? f.options() : (f.options || []);
   const genTag = () => {
     const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', g = n => [...crypto.getRandomValues(new Uint8Array(n))].map(x => a[x % a.length]).join('');
     return g(4) + '-' + g(4) + '-' + g(4);
   };
   const show = (f, v) => {
     if (f.type === 'checkbox') return v ? 'Ja' : 'Nein';
-    if (f.type === 'select') { const o = (f.options || []).map(opt).find(x => x[0] == v); return esc(o ? o[1] : v); }
+    if (f.type === 'select') { const o = fo(f).map(opt).find(x => x[0] == v); return esc(o ? o[1] : v); }
     if (f.type === 'date' && v) return esc(new Date(v + 'T00:00').toLocaleDateString('de-DE'));
     if (f.type === 'color' && v) return '<i class="dot" style="background:' + esc(v) + '"></i>' + esc(v);
     return esc(v);
   };
   const input = (f, v) => {
     const id = 'f_' + f.k, req = f.req ? ' required' : '';
-    if (f.type === 'textarea') return '<textarea id="' + id + '" rows="3">' + esc(v) + '</textarea>';
-    if (f.type === 'select') return '<select id="' + id + '"' + req + '>' + (f.options || []).map(opt).map(o => '<option value="' + esc(o[0]) + '"' + (o[0] == v ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
+    if (f.type === 'textarea') return '<textarea id="' + id + '" rows="3"' + req + '>' + esc(v) + '</textarea>';
+    if (f.type === 'select') return '<select id="' + id + '"' + req + '>' + fo(f).map(opt).map(o => '<option value="' + esc(o[0]) + '"' + (o[0] == v ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>';
     if (f.type === 'checkbox') return '<input id="' + id + '" type="checkbox"' + (v ? ' checked' : '') + '>';
     const t = f.type === 'tag' ? 'text' : f.type || 'text';
     return '<input id="' + id + '" type="' + t + '" value="' + esc(v) + '"' + req + (f.type === 'tag' ? ' minlength="8"' : '') + (t === 'number' ? ' step="1"' : '') + '>';

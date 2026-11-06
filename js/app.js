@@ -29,7 +29,11 @@
     list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     user: '<path d="M20 21v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1"/><circle cx="12" cy="7" r="4"/>',
     mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
-    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>'
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
+    sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V21h16"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'
   };
   const svg = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>';
   // Neue Seiten werden hier eingetragen; "feature" verknüpft sie mit den Schaltern aus der Tabelle features.
@@ -40,7 +44,10 @@
     { id: 'leaderboards', href: 'leaderboards.html', label: 'Ranglisten', icon: 'trophy', feature: 'leaderboards' },
     { id: 'teams', href: 'teams.html', label: 'Teams', icon: 'users', feature: 'teams' },
     { id: 'team', href: 'team.html', label: 'Mein Team', icon: 'user', feature: 'teams' },
-    { id: 'messages', href: 'messages.html', label: 'Nachrichten', icon: 'mail', feature: 'messages' }
+    { id: 'messages', href: 'messages.html', label: 'Nachrichten', icon: 'mail', feature: 'messages' },
+    { id: 'rules', href: 'rules.html', label: 'Regeln', icon: 'book', feature: 'rules' },
+    { id: 'history', href: 'history.html', label: 'Historie', icon: 'clock', feature: 'competition_history' },
+    { id: 'about', href: 'about.html', label: 'Über die AG', icon: 'info', feature: 'about' }
   ];
   const ADMIN_NAV = [
     { id: 'dash', href: 'admin.html', label: 'Dashboard', icon: 'grid' },
@@ -50,6 +57,9 @@
     { id: 'rankings', href: 'admin-rankings.html', label: 'Ranglisten', icon: 'trophy' },
     { id: 'requests', href: 'admin-requests.html', label: 'Anfragen', icon: 'inbox' },
     { id: 'messages', href: 'admin-messages.html', label: 'Nachrichten', icon: 'mail' },
+    { id: 'rules', href: 'admin-rules.html', label: 'Regeln', icon: 'book' },
+    { id: 'about', href: 'admin-about.html', label: 'AG-Infos', icon: 'info' },
+    { id: 'settings', href: 'admin-settings.html', label: 'Funktionen', icon: 'sliders' },
     { id: 'site', href: 'index.html', label: 'Zur Seite', icon: 'home' },
     { id: 'logout', href: '#', label: 'Abmelden', icon: 'out', logout: true }
   ];
@@ -139,6 +149,7 @@
     if (!opts.admin) shell.querySelector('.nav').insertAdjacentHTML('beforeend', Arena.admin
       ? '<a href="admin.html">' + svg('shield') + '<span class="lbl">Admin</span></a>'
       : '<a href="login.html">' + svg('shield') + '<span class="lbl">Admin-Login</span></a>');
+    if (!opts.admin) { const t = Arena.admin ? 'Admin-Bereich' : 'Admin-Login'; shell.querySelector('.top').insertAdjacentHTML('beforeend', '<a class="adm" href="' + (Arena.admin ? 'admin.html' : 'login.html') + '" aria-label="' + t + '" title="' + t + '">' + svg('shield') + '</a>'); }
     if (res[1] && !Arena.admin) {
       document.body.insertAdjacentHTML('beforeend', '<div class="lock"><div><div class="logo big">🤖</div><h1>Wir räumen gerade auf</h1><p>Die Seite ist kurz nicht erreichbar. Schau später noch einmal vorbei.</p></div></div>');
       return null;

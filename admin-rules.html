@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/tournament.js?v=5"></script>
+<script src="js/admin.js?v=5"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, q = Admin.q;
+  const view = await A.mount('rules', { title: 'Regeln', admin: true });
+  if (!view) return;
+  let cats = [];
+  const refresh = async () => { cats = await q(sb.from('rule_categories').select('id,title').order('sort_order')); };
+  try { await refresh(); } catch (e) { A.fail(e, 'Kategorien laden'); }
+  view.innerHTML = '<div id="c1"></div><div style="height:56px"></div><div id="c2"></div>';
+  await Admin.crud(document.getElementById('c1'), {
+    title: 'Regel-Kategorien', table: 'rule_categories', order: [['sort_order', true]], newLabel: 'Neue Kategorie',
+    empty: 'Noch keine Kategorie. Lege zuerst eine an, zum Beispiel „Spielregeln“, und füge dann darunter Regeln hinzu.',
+    name: r => r.title, delNote: ' Alle Regeln in dieser Kategorie werden mit gelöscht.', defaults: { color: '#FF8A00', sort_order: 0 },
+    fields: [
+      { k: 'title', label: 'Titel', req: 1, list: 1 }, { k: 'description', label: 'Kurzbeschreibung', type: 'textarea' },
+      { k: 'icon', label: 'Symbol', hint: 'Ein Emoji, zum Beispiel 🤖' }, { k: 'color', label: 'Farbe', type: 'color', list: 1 },
+      { k: 'sort_order', label: 'Reihenfolge (kleine Zahl zuerst)', type: 'number', list: 1 }
+    ],
+    after: refresh
+  });
+  await Admin.crud(document.getElementById('c2'), {
+    title: 'Regeln', table: 'rules', order: [['sort_order', true]], newLabel: 'Neue Regel',
+    empty: 'Noch keine Regel. Lege zuerst oben eine Kategorie an und füge dann hier Regeln hinzu.',
+    name: r => r.title, defaults: { sort_order: 0 },
+    fields: [
+      { k: 'category_id', label: 'Kategorie', type: 'select', req: 1, list: 1, options: () => cats.map(c => [c.id, c.title]), hint: 'Neue Kategorien erscheinen hier sofort, in der Liste aber erst nach dem Neuladen der Seite.' },
+      { k: 'title', label: 'Titel', req: 1, list: 1 }, { k: 'text', label: 'Text', type: 'textarea', req: 1 },
+      { k: 'sort_order', label: 'Reihenfolge (kleine Zahl zuerst)', type: 'number', list: 1 }
+    ]
+  });
+})();
+</script>
+</body>
+</html>

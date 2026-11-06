@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1120">
+<title>Mindstorms Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/tournament.js?v=5"></script>
+<script src="js/admin.js?v=5"></script>
+<script>
+(async function () {
+  if (!window.Arena) return;
+  const A = window.Arena, sb = A.sb, esc = A.esc, q = Admin.q;
+  const view = await A.mount('settings', { title: 'Funktionen', admin: true });
+  if (!view) return;
+  view.innerHTML = '<h1 class="pg-h">Funktionen</h1><p class="mute" style="margin-bottom:14px">Schalte Bereiche der Seite ein oder aus. Ausgeschaltete Bereiche verschwinden aus der Navigation und lassen sich nicht mehr öffnen.</p><div id="fl"><div class="sk" style="height:120px"></div></div>' +
+    '<h2 class="sec2">Aufräum-Modus</h2><div id="mt"></div><h2 class="sec2">Backup</h2><p class="mute">Lädt alle Daten als Datei herunter. Die Datei enthält die geheimen Team-Tags, bewahre sie sicher auf.</p><div class="acts"><button class="btn" id="bk" type="button">Backup herunterladen</button></div>';
+  const fl = document.getElementById('fl'), mt = document.getElementById('mt');
+  let on = false;
+  const drawM = () => { mt.innerHTML = '<p>' + (on ? 'Der Aufräum-Modus ist <b>an</b>. Besucher sehen nur eine Sperrseite, Admins können weiterarbeiten.' : 'Der Aufräum-Modus ist aus.') + '</p><div class="acts"><button class="btn' + (on ? '' : ' pri') + '" id="mb" type="button">' + (on ? 'Ausschalten' : 'Einschalten') + '</button></div>'; };
+  try {
+    const f = await q(sb.from('features').select('*').order('label'));
+    fl.innerHTML = '<div class="chk-grid">' + f.map(x => '<label><input type="checkbox" data-k="' + esc(x.key) + '"' + (x.enabled ? ' checked' : '') + '><span>' + esc(x.label) + '</span></label>').join('') + '</div>';
+    const m = await q(sb.from('site_config').select('value').eq('key', 'maintenance').maybeSingle());
+    on = !!m && m.value === 'on'; drawM();
+  } catch (e) { A.fail(e, 'Einstellungen laden'); fl.innerHTML = '<p class="empty">Die Einstellungen konnten nicht geladen werden: ' + esc(e.message) + '</p>'; }
+  fl.onchange = async e => {
+    const c = e.target.closest('[data-k]'); if (!c) return;
+    try { await q(sb.from('features').update({ enabled: c.checked }).eq('key', c.dataset.k)); A.toast('Gespeichert.'); }
+    catch (er) { c.checked = !c.checked; A.fail(er, 'Speichern'); }
+  };
+  mt.onclick = async e => {
+    if (!e.target.closest('#mb')) return;
+    if (!on && !confirm('Aufräum-Modus einschalten? Alle Besucher außer Admins sehen dann nur eine Sperrseite.')) return;
+    try { await q(sb.from('site_config').upsert({ key: 'maintenance', value: on ? 'off' : 'on' })); on = !on; drawM(); A.toast(on ? 'Aufräum-Modus ist an.' : 'Aufräum-Modus ist aus.'); }
+    catch (er) { A.fail(er, 'Speichern'); }
+  };
+  document.getElementById('bk').onclick = async e => {
+    const b = e.currentTarget; b.disabled = true;
+    const T = ['teams', 'team_access', 'team_members', 'competitions', 'matches', 'participations', 'rankings', 'messages', 'open_chat_messages', 'open_chat_bans', 'help_requests', 'change_requests', 'rule_categories', 'rules', 'about_sections', 'projects', 'activities', 'team_scoreboard', 'app_settings', 'site_config', 'features'];
+    const all = async t => { let a = [], i = 0; for (;;) { const r = await q(sb.from(t).select('*').range(i, i + 999)); a = a.concat(r); if (r.length < 1000) return a; i += 1000; } };
+    try {
+      const out = { exported_at: new Date().toISOString() };
+      for (const t of T) out[t] = await all(t);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+      a.download = 'arena-backup-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      A.toast('Backup heruntergeladen.');
+    } catch (er) { A.fail(er, 'Backup'); }
+    b.disabled = false;
+  };
+})();
+</script>
+</body>
+</html>
