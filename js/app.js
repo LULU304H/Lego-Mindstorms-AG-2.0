@@ -136,7 +136,9 @@
     ]);
     Arena.admin = res[0];
     if (opts.admin && !Arena.admin) { location.replace('login.html'); return null; }
-    if (Arena.admin && !opts.admin) shell.querySelector('.nav').insertAdjacentHTML('beforeend', '<a href="admin.html">' + svg('shield') + '<span class="lbl">Admin</span></a>');
+    if (!opts.admin) shell.querySelector('.nav').insertAdjacentHTML('beforeend', Arena.admin
+      ? '<a href="admin.html">' + svg('shield') + '<span class="lbl">Admin</span></a>'
+      : '<a href="login.html">' + svg('shield') + '<span class="lbl">Admin-Login</span></a>');
     if (res[1] && !Arena.admin) {
       document.body.insertAdjacentHTML('beforeend', '<div class="lock"><div><div class="logo big">🤖</div><h1>Wir räumen gerade auf</h1><p>Die Seite ist kurz nicht erreichbar. Schau später noch einmal vorbei.</p></div></div>');
       return null;
